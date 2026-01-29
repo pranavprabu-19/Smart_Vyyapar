@@ -1,0 +1,351 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+
+model Invoice {
+  id           String   @id @default(cuid())
+  invoiceNo    String   @unique
+  companyName  String
+  customerName String // Keep for snapshot
+  
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  
+  // Link to Employee who created it
+  employeeId   String?
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+
+  totalAmount  Float
+  date         DateTime
+  paymentMode  String
+  status       String   @default("PAID") // PAID, PENDING, CANCELLED
+  
+  // JSON fields for structured data that doesn't need its own table for MVP
+  customerDetails String // JSON string of customer object
+  billingAddress  String
+  
+  items        InvoiceItem[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  productId   String
+  description String
+  quantity    Int
+  price       Float
+  costPrice   Float   @default(0) // For profit calc
+  hsn         String?
+  gstRate     Float   @default(18.0)
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  role        String   // ADMIN, EMPLOYEE, DRIVER, etc.
+  password    String   // Hashed
+  
+  // Multi-tenancy & Employee Link
+  companyName String?  // If null, might be Super Admin or unassigned
+  employeeId  String?  // Link to Employee record if applicable
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Employee {
+  id          String   @id @default(cuid())
+  companyName String   // Separation
+  employeeId  String    // Custom ID e.g., EMP-001
+  
+  name        String
+  role        String   // Job Role: "Driver", "Sales Officer", "Manager"
+  email       String?
+  phone       String?
+  address     String?
+  aadhaar     String?
+  pan         String?
+  
+  // Payroll Info
+  salaryType  String   @default("MONTHLY") // "MONTHLY", "DAILY"
+  baseSalary  Float    @default(0)
+  
+  // Status
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE
+  joiningDate DateTime @default(now())
+  
+  // Relations
+  attendance Attendance[]
+  invoices   Invoice[]
+  payroll    Payroll[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyName, employeeId]) // IDs unique per company or globally? Let's keep unique
+}
+
+model Attendance {
+  id          String   @id @default(cuid())
+  employeeId  String   
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  date        DateTime // Store as date only (midnight)
+  status      String   // PRESENT, ABSENT, HALF_DAY, LEAVE
+  
+  checkIn     String?  // Time string "09:00"
+  checkOut    String?  // Time string "18:00"
+  
+  overtimeHours Float  @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, date])
+}
+
+model Payroll {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  month       String   // "2024-12"
+  year        Int
+  
+  baseSalary  Float
+  attendanceDays Float // Present days
+  
+  // Earnings
+  earnedSalary Float
+  bonus        Float   @default(0) // Performance/Trip Bonus
+  incentives   Float   @default(0) // Sales Commission (Legacy/Future)
+  
+  // Deductions
+  deductions   Float   @default(0)
+  
+  netSalary    Float
+  
+  status       String  @default("PENDING") // PENDING, PAID
+  paymentDate  DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([employeeId, month])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  companyName String   @default("Sai Associates")
+  sku         String   @unique
+  name        String
+  category    String   @default("General")
+  price       Float
+  stock       Int      @default(0)
+  image       String?  // Emoji or URL
+  minStock    Int      @default(10) // Low stock alert threshold
+  costPrice     Float    @default(0)
+  reorderQuantity Int    @default(50) // Default batch size to order
+  supplierEmail   String? // For auto-restock alerts
+  
+  gstRate       Float    @default(18.0)
+  
+  stocks        Stock[]  // Relation to Stock model
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Godown {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  location    String?
+  manager     String?
+  contact     String?
+  
+  stocks      Stock[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Stock {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  godownId    String
+  godown      Godown   @relation(fields: [godownId], references: [id], onDelete: Cascade)
+  
+  quantity    Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, godownId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  companyName String @default("Sai Associates")
+  name      String   
+  address   String
+  state     String
+  gstin     String?  @unique
+  phone     String?
+  email     String?
+  
+  // Location
+  lat       Float?
+  lng       Float?
+  mapLink   String?
+  
+  balance      Float    @default(0)
+  totalRevenue Float    @default(0)
+  
+  invoices      Invoice[]
+  lastInvoiceNo String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  address     String
+  city        String?
+  state       String?
+  pincode     String?
+  phone       String?
+  email       String?
+  gstin       String?
+  
+  // Bank Details
+  bankName    String?
+  accountNo   String?
+  ifscCode    String?
+  branch      String?
+  
+  // Assets
+  logoUrl     String?  // Base64 or URL
+  signatureUrl String? // Base64 or URL
+  
+  // Communication Config
+  whatsappApiKey String?
+  whatsappPhoneId String?
+  invoiceTemplateId String? // For WhatsApp template
+  
+  emailSmtpHost String?
+  emailUser     String?
+  emailPassword String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Trip {
+  id            String    @id @default(cuid())
+  companyName   String    @default("Sai Associates")
+  driverName    String
+  vehicleNo     String
+  
+  vehicleId     String?
+  vehicle       Vehicle?  @relation(fields: [vehicleId], references: [id])
+
+  status        String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
+  
+  startTime     DateTime?
+  endTime       DateTime?
+  startLocation String?   // JSON {lat, lng}
+  totalDistance Float     @default(0)
+  
+  stops         TripStop[]
+  
+  // Expenses
+  fuelCost      Float     @default(0)
+  foodCost      Float     @default(0)
+  otherExp      Float     @default(0)
+  allowance     Float     @default(0)
+  
+  startReading  Float     @default(0) // Odometer
+  endReading    Float     @default(0) // Odometer
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model TripStop {
+  id           String    @id @default(cuid())
+  tripId       String
+  trip         Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  
+  customerName String
+  address      String
+  items        String    // Description of items
+  
+  status       String    @default("PENDING") // PENDING, DELIVERED, FAILED
+  timestamp    DateTime? // Delivery time
+  
+  lat          Float
+  lng          Float
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  regNo       String   @unique // e.g., TN-01-AB-1234
+  model       String   // e.g., Tata Ace, Hero Splendor
+  type        String   // TRUCK, BIKE, AUTO
+  status      String   @default("ACTIVE") // ACTIVE, MAINTENANCE, INACTIVE
+  fuelType    String?  // DIESEL, PETROL, EV
+  
+  // Stats
+  totalDistance Float  @default(0)
+  lastServiceDate DateTime?
+  
+  details     String? // JSON extra details
+
+  trips       Trip[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Photo {
+  id          String   @id @default(cuid())
+  url         String   // Base64 or separate storage URL
+  timestamp   DateTime @default(now())
+  
+  // Geolocation
+  lat         Float
+  lng         Float
+  address     String?
+  accuracy    Float?
+  isMock      Boolean  @default(false)
+  
+  // Metadata
+  userName    String
+  userRole    String
+  companyName String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
