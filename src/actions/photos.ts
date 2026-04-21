@@ -4,6 +4,8 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
+export type StockSnapshotItem = { productId: string; name: string; qty: number };
+
 export async function savePhotoAction(data: {
     url: string;
     lat: number;
@@ -14,8 +16,13 @@ export async function savePhotoAction(data: {
     userName: string;
     userRole: string;
     companyName: string;
+    stockSnapshot?: StockSnapshotItem[];
 }) {
     try {
+        const stockJson = data.stockSnapshot && data.stockSnapshot.length > 0
+            ? JSON.stringify(data.stockSnapshot)
+            : null;
+
         const photo = await prisma.photo.create({
             data: {
                 url: data.url,
@@ -24,6 +31,7 @@ export async function savePhotoAction(data: {
                 address: data.address,
                 accuracy: data.accuracy,
                 isMock: data.isMock,
+                stockSnapshot: stockJson,
                 userName: data.userName,
                 userRole: data.userRole,
                 companyName: data.companyName

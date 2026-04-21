@@ -35,7 +35,7 @@ export interface InvoiceData {
     items: InvoiceItem[];
     paymentMode?: "CASH" | "UPI" | "CHEQUE" | "CREDIT";
     status?: "PAID" | "PENDING" | "CANCELLED" | "GENERATED" | "PRINTED" | "DISPATCHED" | "DELIVERED";
-    
+
     // Advanced billing features (optional, won't break existing invoices)
     discount?: {
         type?: 'PERCENTAGE' | 'FIXED';
@@ -131,51 +131,31 @@ export const generateUPIString = (upiId: string, name: string, amount: number, i
 export const generateInvoicePDF = async (data: InvoiceData): Promise<jsPDF> => {
     // Priority: 1. Passed in companyProfile (DB), 2. Hardcoded Match, 3. Fallback
     const activeCompany = data.companyProfile || COMPANY_DETAILS[data.companyName] || COMPANY_DETAILS["Sai Associates"];
-    // Default to A5 as requested per new requirements
-    const paperSize = data.settings?.paperSize || 'a5';
     const isGST = data.settings?.isGST !== false; // Default true
 
-    // Define Custom Sizes if not standard
-    let format: string | number[] = paperSize;
-    let unit: 'mm' | 'pt' = 'mm';
-    if (paperSize === 'thermal-2') {
-        format = [58, 200]; // 58mm width, 200mm height (adjustable/roll)
-    } else if (paperSize === 'thermal-3') {
-        format = [80, 200]; // 80mm width
-    }
-
-    const doc = new jsPDF({ format: format as any, unit: 'mm' });
-
+    // Permanent A5 Size 
+    // A5 Dimensions: 148 x 210 mm
+    const doc = new jsPDF({ format: 'a5', unit: 'mm' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const isThermal = paperSize.startsWith('thermal');
-    const margin = isThermal ? 2 : 10;
+    const margin = 5;
     const contentWidth = pageWidth - (margin * 2);
     const centerX = pageWidth / 2;
-    const col1X = margin + (isThermal ? 0 : 4);
-    const col2X = centerX + (isThermal ? 0 : 4); // For thermal, might need single column look
-
 
     // Load Images Helper - Universal (works in Node and Browser)
     const loadImg = async (path: string): Promise<string | Uint8Array | null> => {
         try {
             if (typeof window === 'undefined') {
-                // Server Side
                 const fs = require('fs/promises');
                 const p = require('path');
-                // Assuming images are in public folder
-                // remove leading slash
                 const relPath = path.startsWith('/') ? path.slice(1) : path;
                 const fullPath = p.join(process.cwd(), 'public', relPath);
-                const buffer = await fs.readFile(fullPath);
-                return buffer;
+                return await fs.readFile(fullPath);
             } else {
-                // Client Side
                 return new Promise((resolve) => {
                     const img = new Image();
                     img.src = path;
-                    img.onload = () => resolve(path); // jsPDF addImage works with path/url in browser if loaded? actually it needs base64 often or just path if same domain
-                    // Better to just return path if using jsPDF in browser, or fetch blob
+                    img.onload = () => resolve(path);
                     img.onerror = () => resolve(null);
                 });
             }
@@ -185,149 +165,140 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<jsPDF> => {
         }
     };
 
-    let logoImg = data.settings?.logo;
-    let signatureImg = data.settings?.signature;
+    let logoImg = data.settings?.logo || "/images/logo.jpg";
 
-    // Pre-load if not provided in settings
-    if (!logoImg) logoImg = "/images/logo.jpg";
-    if (!signatureImg) signatureImg = "/images/signature.jpg";
+    let currentY = margin;
+    const bottomMargin = 5;
+    const boxHeight = pageHeight - margin - bottomMargin;
 
-    // 0. Top Title
-    doc.setFontSize(12);
+    // Outer Master Box
+    doc.setLineWidth(0.2);
+    doc.rect(margin, margin, contentWidth, boxHeight);
+
+    // --- 1. "Tax Invoice" Header ---
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(isGST ? "Tax Invoice" : "ESTIMATE", centerX, 8, { align: 'center' });
+    doc.text("Tax Invoice", centerX, currentY + 4, { align: "center" });
+    currentY += 6;
 
-    // --- SECTION 1: HEADER (Logo, Company) ---
-    const startY = 12;
-    const headerHeight = paperSize === 'a5' ? 40 : 35; // More height for A5 wrapping
+    doc.setLineWidth(0.2);
+    doc.line(margin, currentY, margin + contentWidth, currentY);
 
-    doc.setLineWidth(0.1);
-    doc.rect(margin, startY, contentWidth, headerHeight);
-
-    // LOGO Placement
+    // --- 2. Company Info ---
+    const companyStartY = currentY;
     if (logoImg) {
         try {
             const logoData = await loadImg(logoImg);
             if (logoData) {
-                doc.addImage(logoData, 'JPEG', margin + 2, startY + 2, 25, 25);
+                doc.addImage(logoData, 'JPEG', margin + 3, currentY + 2, 16, 16); // Logo scaled down slightly
             }
         } catch (e) { /* Ignore */ }
     }
 
-    // Company Details (Centered & Wrapped)
-    const textStartX = margin + 30; // Shift text right to avoid logo
-    const textWidth = contentWidth - 35; // Available width for text
-    const textCenterX = textStartX + (textWidth / 2);
-
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(data.companyName, textCenterX, startY + 8, { align: 'center' });
+    doc.text(data.companyName, centerX, currentY + 6, { align: "center" });
 
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    let cleanAddress = activeCompany.address || '';
+    cleanAddress = cleanAddress.replace(/null\s*-\s*null/gi, '').replace(/\bnull\b/gi, '').replace(/,\s*,/g, ',').trim();
+    doc.text(cleanAddress, centerX, currentY + 10, { align: "center" });
+
+    doc.setFontSize(6);
+    doc.text(`Phone: ${activeCompany.phone} | Email: ${activeCompany.email || 'N/A'}`, centerX, currentY + 14, { align: "center" });
+    doc.text(`GSTIN: ${activeCompany.gstin || 'N/A'} | State: 33-Tamil Nadu`, centerX, currentY + 18, { align: "center" });
+
+    currentY += 21;
+    doc.line(margin, currentY, margin + contentWidth, currentY);
+
+    // --- 3. Bill To & Invoice Info ---
+    const billToStartY = currentY;
+
+    // Bill To
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("Bill To:", margin + 3, currentY + 4);
     doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const addressLines = doc.splitTextToSize(activeCompany.address, textWidth);
-    doc.text(addressLines, textCenterX, startY + 14, { align: 'center' });
-
-    doc.text(`Phone: ${activeCompany.phone}`, textCenterX, startY + 24, { align: 'center' });
-    if (isGST) {
-        doc.text(`GSTIN: ${activeCompany.gstin}`, textCenterX, startY + 28, { align: 'center' });
-    }
-
-    // --- SECTION 2: CUSTOMER & INVOICE DETAILS ---
-    const infoY = startY + headerHeight;
-    const infoHeight = 35;
-
-    doc.rect(margin, infoY, contentWidth, infoHeight);
-    doc.line(centerX, infoY, centerX, infoY + infoHeight);
-
-    // Common Font settings
-    const labelFontSize = 8;
-    const valFontSize = 9;
-    const lineHeight = 4.5;
-
-    // -- Left Side: Bill To --
-    let cursorY = infoY + 5;
-    doc.setFontSize(labelFontSize);
     doc.setFont("helvetica", "bold");
-    doc.text("Bill To:", col1X, cursorY);
+    doc.text(data.customer.name, margin + 3, currentY + 8);
 
-    cursorY += lineHeight;
-    doc.setFontSize(valFontSize);
-    doc.text(data.customer.name, col1X, cursorY);
-
-    cursorY += 1; // small gap
+    doc.setFontSize(6);
     doc.setFont("helvetica", "normal");
-    const custAddr = doc.splitTextToSize(data.customer.address, (contentWidth / 2) - 8);
-    doc.text(custAddr, col1X, cursorY + 4);
+    const custAddrLines = doc.splitTextToSize(data.customer.address, (contentWidth / 2) - 8);
+    doc.text(custAddrLines, margin + 3, currentY + 12);
 
-    if (isGST && data.customer.gstin) {
-        const custBottomY = infoY + infoHeight - 5;
+    let addrHeight = custAddrLines.length * 3;
+    doc.setFont("helvetica", "bold");
+    doc.text(`State: 33-Tamil Nadu`, margin + 3, currentY + 12 + addrHeight + 2);
+    doc.text(`GSTIN: ${data.customer.gstin || 'N/A'}`, margin + 3, currentY + 12 + addrHeight + 6);
+
+    // Invoice Info right side
+    const midX = centerX;
+    doc.line(midX, billToStartY, midX, currentY + 23); // Vertical line separator
+
+    const infoX = midX + 3;
+    const infoValX = midX + 25;
+
+    let infY = currentY + 4;
+    const pInfo = (lbl: string, val: string) => {
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.text(lbl, infoX, infY);
         doc.setFont("helvetica", "bold");
-        doc.text(`GSTIN: ${data.customer.gstin}`, col1X, custBottomY);
+        doc.text(`: ${val}`, infoValX, infY);
+        infY += 4;
     }
 
-    // -- Right Side: Invoice Details --
-    cursorY = infoY + 6;
-    const rightLabelX = col2X;
-    const rightValX = col2X + 25; // Adjusted for tight A5 space
+    pInfo("Invoice No", data.invoiceNo);
+    pInfo("Date", data.date);
+    pInfo("Time", data.time || 'N/A');
+    pInfo("Place of Supply", "33-Tamil Nadu");
+    pInfo("Payment Mode", data.paymentMode || 'CASH');
 
-    const printRow = (label: string, val: string) => {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(labelFontSize);
-        doc.text(label, rightLabelX, cursorY);
+    currentY += 23;
+    doc.line(margin, currentY, margin + contentWidth, currentY);
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(valFontSize);
-        doc.text(val, rightValX, cursorY);
-        cursorY += lineHeight;
-    };
-
-    printRow("Inv No", `: ${data.invoiceNo}`);
-    printRow("Date", `: ${data.date}`);
-    printRow("Time", `: ${data.time || ''}`);
-    printRow("Mode", `: ${data.paymentMode || 'CASH'}`);
-
-
-    // --- SECTION 3: ITEMS TABLE ---
-    const tableY = infoY + infoHeight;
-
+    // --- 4. Table ---
     const tableColumn = [
-        { header: 'Item', dataKey: 'desc' },
+        { header: 'S.N', dataKey: 'sno' },
+        { header: 'Item Name', dataKey: 'desc' },
+        { header: 'HSN', dataKey: 'hsn' },
         { header: 'Qty', dataKey: 'qty' },
-        { header: 'Rate', dataKey: 'price' },
-        { header: 'Amt', dataKey: 'amount' },
+        { header: 'Unit', dataKey: 'unit' },
+        { header: 'Price', dataKey: 'rate' },
+        { header: 'GST', dataKey: 'gstRate' },
+        { header: 'Amount', dataKey: 'total' },
     ];
 
-    if (isGST) {
-        tableColumn.splice(2, 0, { header: 'GST', dataKey: 'gst' });
-    }
-
+    let totalSno = 1;
     const tableRows = data.items.map((item) => {
-        const taxable = item.quantity * item.price;
-        const gstAmount = (taxable * item.gstRate) / 100;
-        const total = isGST ? (taxable + gstAmount) : taxable;
+        const taxableValue = item.quantity * item.price;
+        const gstAmount = (taxableValue * item.gstRate) / 100;
+        const totalAmount = isGST ? (taxableValue + gstAmount) : taxableValue;
 
         return {
+            sno: totalSno++,
             desc: item.description,
-            qty: item.quantity,
-            price: item.price.toFixed(2),
-            gst: `${item.gstRate}%`,
-            amount: total.toFixed(2),
+            hsn: isGST ? (item.hsn || '2201') : '-',
+            qty: item.quantity.toString(),
+            unit: item.unit || 'PCS',
+            rate: item.price.toFixed(2),
+            gstRate: isGST ? `${item.gstRate}%` : '-',
+            total: totalAmount.toFixed(2),
         };
     });
 
-    // Min Rows
-    while (tableRows.length < 5) {
+    // Pad with empty rows to stretch table down (scaled for A5 constraint)
+    while (tableRows.length < 13) {
         // @ts-ignore
-        tableRows.push({ desc: '', qty: '', price: '', gst: '', amount: '' });
+        tableRows.push({ sno: '', desc: '', hsn: '', qty: '', unit: '', rate: '', gstRate: '', total: '' });
     }
-
-    const { subTotal, totalAmount } = calculateInvoiceTotals(data.items);
 
     (autoTable as any)(doc, {
         columns: tableColumn,
         body: tableRows,
-        startY: tableY,
+        startY: currentY,
         theme: 'grid',
         margin: { left: margin, right: margin },
         tableWidth: contentWidth,
@@ -336,91 +307,126 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<jsPDF> => {
             textColor: [0, 0, 0],
             fontStyle: 'bold',
             halign: 'center',
-            lineWidth: 0.1,
-            lineColor: [0, 0, 0]
+            lineWidth: 0.2,
+            lineColor: [0, 0, 0],
+            fontSize: 6
         },
         styles: {
-            fontSize: 8,
-            cellPadding: 1.5,
+            fontSize: 6,
+            cellPadding: 2,
             textColor: [0, 0, 0],
             lineColor: [0, 0, 0],
-            lineWidth: 0.1,
+            lineWidth: 0.2,
             valign: 'middle'
         },
         columnStyles: {
-            desc: { halign: 'left' },
-            qty: { halign: 'center', cellWidth: 10 },
-            gst: { halign: 'center', cellWidth: 10 },
-            price: { halign: 'right', cellWidth: 15 },
-            amount: { halign: 'right', cellWidth: 20 },
+            sno: { halign: 'center', cellWidth: 7 },
+            desc: { halign: 'left', cellWidth: 'auto' },
+            hsn: { halign: 'center', cellWidth: 12 },
+            qty: { halign: 'center', cellWidth: 8 },
+            unit: { halign: 'center', cellWidth: 9 },
+            rate: { halign: 'right', cellWidth: 13 },
+            gstRate: { halign: 'center', cellWidth: 9 },
+            total: { halign: 'right', cellWidth: 16 },
         },
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY as number;
+    currentY = (doc as any).lastAutoTable.finalY as number;
 
-    // --- FOOTER CHECK ---
-    const footerHeight = 60;
-    if (pageHeight - finalY < footerHeight) doc.addPage();
-    let footerY = (doc as any).lastAutoTable.finalY;
+    // --- 5. Totals & Words ---
+    const totalsBlockHeight = 16;
+    const totalsSplitX = margin + contentWidth - 45; // Positioning for A5 width
+    
+    // Middle vertical line separating Amount in words and totals
+    doc.line(totalsSplitX, currentY, totalsSplitX, currentY + totalsBlockHeight);
 
-    // --- SECTION 4: FOOTER ---
-    doc.rect(margin, footerY, contentWidth, 30);
-
-    doc.setFontSize(8);
+    doc.setFontSize(6);
     doc.setFont("helvetica", "normal");
-    doc.text("Amount in Words:", margin + 2, footerY + 5);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${numToWords(Math.round(totalAmount))} Rupees Only`, margin + 2, footerY + 10, { maxWidth: contentWidth - 40 });
+    doc.text("Amount in Words:", margin + 2, currentY + 4);
 
-    // Totals
-    const rX = margin + contentWidth - 40;
-    const rValX = margin + contentWidth - 2;
+    const { totalAmount } = calculateInvoiceTotals(data.items);
+    let finalGrandTotal = totalAmount;
+    if (data.discount?.value) {
+        if (data.discount.type === 'PERCENTAGE') {
+            finalGrandTotal -= (finalGrandTotal * data.discount.value) / 100;
+        } else {
+            finalGrandTotal -= data.discount.value;
+        }
+    }
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Total:", rX, footerY + 25);
-    doc.text(totalAmount.toFixed(2), rValX, footerY + 25, { align: 'right' });
-
-
-    // --- SECTION 5: FINAL BLOCK ---
-    const lastBlockY = footerY + 30;
-    doc.rect(margin, lastBlockY, contentWidth, 35);
-
-    // Bank Details (Compact for A5)
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
-    doc.text("Bank Details:", margin + 2, lastBlockY + 5);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Bank: ${activeCompany.bank}`, margin + 2, lastBlockY + 9);
-    doc.text(`A/c: ${activeCompany.ac} | IFSC: ${activeCompany.ifsc}`, margin + 2, lastBlockY + 13);
+    doc.text(`${numToWords(Math.round(finalGrandTotal))} Rupees Only`, margin + 2, currentY + 10);
 
-    // QR Code
+    // Right summary box
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text("Sub Total:", totalsSplitX + 2, currentY + 5);
+    doc.text(totalAmount.toFixed(2), margin + contentWidth - 2, currentY + 5, { align: 'right' });
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Total:", totalsSplitX + 2, currentY + 13);
+    doc.text(finalGrandTotal.toFixed(2), margin + contentWidth - 2, currentY + 13, { align: 'right' });
+
+    currentY += totalsBlockHeight;
+    doc.setLineWidth(0.2);
+    doc.line(margin, currentY, margin + contentWidth, currentY);
+
+    // --- 6. Footer (Bank Details, QR, Signature) ---
+    const footerStartY = currentY;
+
+    // Left block: Bank Details
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text("Bank Details:", margin + 2, currentY + 4);
+
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Bank: ${activeCompany.bank} | A/c: ${activeCompany.ac}`, margin + 2, currentY + 8);
+    doc.text(`IFSC: ${activeCompany.ifsc} | Branch: ${activeCompany.branch}`, margin + 2, currentY + 12);
+
+    doc.setFontSize(5);
+    doc.text("Terms: 1. Subject to Chennai Jurisdiction. 2. Interest @ 24% if delayed.", margin + 2, currentY + 28);
+
+    // Vertical line separating Bank details from Signature Block
+    const sigBlockX = centerX + 12;
+    doc.line(sigBlockX, footerStartY, sigBlockX, footerStartY + (boxHeight - footerStartY + margin));
+
+    // Center QR Code
     let qrCodeDataUrl: string | null = null;
     if (activeCompany.upiId) {
         try {
-            const upiString = generateUPIString(activeCompany.upiId, data.companyName, totalAmount, data.invoiceNo);
+            const upiString = generateUPIString(activeCompany.upiId, data.companyName, finalGrandTotal, data.invoiceNo);
             qrCodeDataUrl = await QRCode.toDataURL(upiString, { errorCorrectionLevel: 'M' });
         } catch (err) { }
     }
 
     if (qrCodeDataUrl) {
-        const qrSize = 25;
-        doc.setFontSize(8);
+        const qrSize = 16;
+        doc.addImage(qrCodeDataUrl, 'PNG', centerX - (qrSize / 2), currentY + 5, qrSize, qrSize);
+        doc.setFontSize(5);
         doc.setFont("helvetica", "bold");
-        doc.text("Scan to Pay", centerX, lastBlockY + 2, { align: 'center' });
-        doc.addImage(qrCodeDataUrl, 'PNG', centerX - (qrSize / 2), lastBlockY + 4, qrSize, qrSize);
+        doc.text("Scan to Pay", centerX, currentY + 23, { align: 'center' });
     }
 
-    // Signature
-    doc.setFontSize(8);
-    doc.text("Authorized Signatory", margin + contentWidth - 30, lastBlockY + 25, { align: 'center' });
-    if (signatureImg) {
+    // Right Block: Signature
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "normal");
+    doc.text(`For ${data.companyName}`, sigBlockX + 2, currentY + 4);
+
+    if (logoImg) {
         try {
-            const sigData = await loadImg(signatureImg);
-            if (sigData) {
-                doc.addImage(sigData, 'JPEG', margin + contentWidth - 30, lastBlockY + 10, 20, 10);
+            const sigStampData = await loadImg(logoImg);
+            if (sigStampData) {
+                // Approximate position for the stamp icon
+                const stampMaxW = 15;
+                doc.addImage(sigStampData, 'JPEG', sigBlockX + ((contentWidth + margin - sigBlockX) / 2) - (stampMaxW / 2), currentY + 7, stampMaxW, stampMaxW);
             }
         } catch (e) { }
     }
 
+    doc.text("Authorized Signatory", sigBlockX + ((contentWidth + margin - sigBlockX) / 2), currentY + 28, { align: 'center' });
+
     return doc;
 };
+

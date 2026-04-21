@@ -209,11 +209,15 @@ export async function getGodownStockAction(godownId: string) {
 
 export async function getGodownStatsAction() {
     noStore();
+    const stockSemantics = {
+        scope: "GODOWN_LEVEL",
+        movementSources: ["INVOICE_DEDUCTION", "STOCK_TRANSFER", "MANUAL_STOCK_UPDATE"],
+    } as const;
     try {
         // Check if godown model exists in Prisma client
         if (!prisma.godown) {
             console.warn("Godown model not available in Prisma client. Please run: npx prisma generate");
-            return { success: false, stats: [] };
+            return { success: false, stats: [], stockSemantics };
         }
 
         const godowns = await prisma.godown.findMany({
@@ -243,14 +247,14 @@ export async function getGodownStatsAction() {
             };
         });
 
-        return { success: true, stats };
+        return { success: true, stats, stockSemantics };
     } catch (error: any) {
         console.error("Failed to fetch godown stats:", error);
         // If it's a model not found error, return empty stats
         if (error?.message?.includes("godown") || error?.message?.includes("Cannot read properties")) {
             console.warn("Godown model may not be available. Please run: npx prisma generate && npx prisma migrate dev");
-            return { success: false, stats: [] };
+            return { success: false, stats: [], stockSemantics };
         }
-        return { success: false, stats: [] };
+        return { success: false, stats: [], stockSemantics };
     }
 }

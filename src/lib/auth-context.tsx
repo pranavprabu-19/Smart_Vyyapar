@@ -2,8 +2,18 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { logoutServerAction } from "@/actions/session";
 
-export type UserRole = "ADMIN" | "EMPLOYEE" | "AUDITOR" | "CUSTOMER" | "SO_OFFICIER" | "FIELD_WORKER" | "DRIVER" | null;
+export type UserRole =
+    | "ADMIN"
+    | "EMPLOYEE"
+    | "AUDITOR"
+    | "CA"
+    | "CUSTOMER"
+    | "SO_OFFICIER"
+    | "FIELD_WORKER"
+    | "DRIVER"
+    | null;
 
 interface User {
     id?: string;
@@ -17,7 +27,7 @@ interface User {
 interface AuthContextType {
     user: User | null;
     login: (userData: User | UserRole) => void;
-    logout: () => void;
+    logout: () => Promise<void>;
     isLoading: boolean;
 }
 
@@ -63,6 +73,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Redirect based on role
             if (finalUser.role === "ADMIN" || finalUser.role === "SO_OFFICIER") {
                 router.push("/dashboard");
+            } else if (finalUser.role === "AUDITOR") {
+                router.push("/dashboard/auditor");
+            } else if (finalUser.role === "CA") {
+                router.push("/ca-portal");
             } else if (finalUser.role === "DRIVER") {
                 router.push("/dashboard/trips");
             } else {
@@ -72,7 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            await logoutServerAction();
+        } catch {
+            // Client logout should still proceed even if server action fails.
+        }
         setUser(null);
         localStorage.removeItem("smart_vyapar_user");
         router.push("/");

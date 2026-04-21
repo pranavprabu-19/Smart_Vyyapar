@@ -6,6 +6,45 @@ import { REAL_CUSTOMERS, REAL_PRODUCTS } from "@/lib/real-data";
 // Type definitions (or import from Prisma)
 import { Trip, TripStop } from "@prisma/client";
 
+type RoutePoint = { lat: number; lng: number };
+
+function haversineDistanceKm(from: RoutePoint, to: RoutePoint) {
+    const R = 6371;
+    const dLat = ((to.lat - from.lat) * Math.PI) / 180;
+    const dLon = ((to.lng - from.lng) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((from.lat * Math.PI) / 180) *
+        Math.cos((to.lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+async function getDistanceScoreKm(from: RoutePoint, to: RoutePoint): Promise<number> {
+    const endpoint = process.env.ROUTE_DISTANCE_API_URL;
+    if (!endpoint) return haversineDistanceKm(from, to);
+
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ from, to }),
+            cache: "no-store",
+        });
+        if (!response.ok) return haversineDistanceKm(from, to);
+
+        const payload = (await response.json()) as { distanceKm?: number; distanceMeters?: number };
+        if (typeof payload.distanceKm === "number") return payload.distanceKm;
+        if (typeof payload.distanceMeters === "number") return payload.distanceMeters / 1000;
+    } catch (error) {
+        console.warn("Distance scoring API failed. Falling back to geo distance.", error);
+    }
+
+    return haversineDistanceKm(from, to);
+}
+
 export async function getActiveTrip() {
     try {
         const trip = await prisma.trip.findFirst({
@@ -95,7 +134,7 @@ export async function createDailyTrip(driverName: string, vehicleNo: string, veh
             throw new Error("No customers with valid location data found in today's invoices.");
         }
 
-        // 3. Optimize Route (Greedy Nearest Neighbor)
+        // 3. Optimize Route (Greedy nearest-neighbor baseline, with optional API distance scoring)
         // Start from Office: Padappai (Approx)
         let currentLocation = { lat: 12.8700, lng: 80.0200 };
         const sortedCustomers = [];
@@ -108,8 +147,7 @@ export async function createDailyTrip(driverName: string, vehicleNo: string, veh
 
             for (let i = 0; i < pending.length; i++) {
                 const c = pending[i];
-                // Simple Euclidean approx is enough for sorting small routes, or Haversine
-                const d = Math.sqrt(Math.pow(c.lat - currentLocation.lat, 2) + Math.pow(c.lng - currentLocation.lng, 2));
+                const d = await getDistanceScoreKm(currentLocation, { lat: c.lat, lng: c.lng });
                 if (d < minDist) {
                     minDist = d;
                     nearestIdx = i;

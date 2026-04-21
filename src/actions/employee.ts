@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { generateStrongTempPassword, hashPassword } from "@/lib/password";
 
 export async function createEmployeeAction(data: {
     name: string;
@@ -113,7 +114,8 @@ export async function updateEmployeeAction(data: {
 
 export async function createEmployeeLoginAction(employeeId: string, email: string, role: string) {
     try {
-        const password = Math.random().toString(36).slice(-8); // Random temp password
+        const password = generateStrongTempPassword(12);
+        const hashed = await hashPassword(password);
 
         // Find employee to get company name
         const employee = await prisma.employee.findUnique({
@@ -132,7 +134,7 @@ export async function createEmployeeLoginAction(employeeId: string, email: strin
             if (existingUser.employeeId === employeeId) {
                 await prisma.user.update({
                     where: { email: email },
-                    data: { password: password, role: role } // Ensure role is synced
+                    data: { password: hashed, role: role } // Ensure role is synced
                 });
                 return { success: true, user: existingUser, tempPassword: password, message: "Password Reset Successful" };
             }
@@ -146,7 +148,7 @@ export async function createEmployeeLoginAction(employeeId: string, email: strin
             data: {
                 name: employee.name,
                 email: email,
-                password: password, // In real app, hash this!
+                password: hashed,
                 role: role,
                 companyName: employee.companyName,
                 employeeId: employee.id
