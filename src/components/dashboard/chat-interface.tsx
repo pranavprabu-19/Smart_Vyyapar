@@ -11,9 +11,10 @@ import { processQuery, AiResponse } from "@/actions/ai";
 interface Message {
     role: 'user' | 'assistant';
     content: string;
-    type?: 'text' | 'table' | 'metric' | 'action';
+    type?: 'text' | 'table' | 'metric' | 'action' | 'chart' | 'insight';
     data?: any;
     navigationPath?: string;
+    suggestions?: string[];
 }
 
 interface ChatInterfaceProps {
@@ -104,7 +105,8 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
                 content: response.text,
                 type: response.type,
                 data: response.data,
-                navigationPath: response.navigationPath
+                navigationPath: response.navigationPath,
+                suggestions: response.suggestions
             }]);
 
             if (response.intent === 'NAVIGATE' && response.navigationPath) {
@@ -133,7 +135,7 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
     };
 
     return (
-        <div className={cn("flex flex-col h-full bg-white overflow-hidden", className)}>
+        <div className={cn("flex flex-col h-full bg-background overflow-hidden", className)}>
             {/* Optional Header */}
             {showHeader && (
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 flex items-center justify-between text-white shrink-0">
@@ -155,21 +157,21 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
             )}
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50" ref={scrollRef}>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/30" ref={scrollRef}>
                 {messages.map((msg, i) => (
                     <div key={i} className={cn("flex w-full", msg.role === 'user' ? "justify-end" : "justify-start")}>
                         <div className={cn(
                             "max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm",
                             msg.role === 'user'
                                 ? "bg-blue-600 text-white rounded-br-none"
-                                : "bg-white text-slate-800 border border-slate-100 rounded-bl-none"
+                                : "bg-card text-card-foreground border border-border rounded-bl-none"
                         )}>
                             <p className="whitespace-pre-wrap">{msg.content}</p>
 
                             {/* Render Data: Metrics */}
                             {msg.type === 'metric' && msg.data && (
-                                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                    <div className="flex justify-between items-center text-blue-900">
+                                <div className="mt-3 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                                    <div className="flex justify-between items-center text-foreground">
                                         <span className="text-xs font-semibold uppercase">Total</span>
                                         <span className="text-lg font-bold">₹{msg.data.total?.toLocaleString()}</span>
                                     </div>
@@ -180,9 +182,9 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
                             {msg.type === 'table' && msg.data && Array.isArray(msg.data) && (
                                 <div className="mt-2 text-xs space-y-1">
                                     {msg.data.map((item: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between p-2 bg-slate-50 rounded border">
+                                        <div key={idx} className="flex justify-between p-2 bg-muted/40 rounded border border-border">
                                             <span className="font-medium truncate max-w-[150px]">{item.name}</span>
-                                            <span className="font-mono text-slate-600">
+                                            <span className="font-mono text-muted-foreground">
                                                 {item.stock !== undefined ? `${item.stock} qty` : `₹${item.balance?.toLocaleString()}`}
                                             </span>
                                         </div>
@@ -196,21 +198,61 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
                                     <Sparkles className="h-3 w-3 mr-1" /> Auto-navigating...
                                 </div>
                             )}
+
+                            {/* Render Insights with better styling */}
+                            {msg.type === 'insight' && msg.data && (
+                                <div className="mt-3 p-3 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+                                    {msg.data.healthScore !== undefined && (
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-semibold text-foreground">Health Score</span>
+                                            <span className={`text-lg font-bold ${msg.data.healthScore >= 80 ? 'text-green-600' : msg.data.healthScore >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                                {msg.data.healthScore}/100
+                                            </span>
+                                        </div>
+                                    )}
+                                    {msg.data.growth !== undefined && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className={`font-bold ${Number(msg.data.growth) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {Number(msg.data.growth) >= 0 ? '↑' : '↓'} {msg.data.growth}%
+                                            </span>
+                                            <span className="text-muted-foreground">growth</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Render Suggestions */}
+                            {msg.suggestions && msg.suggestions.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-border">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-medium mb-2">Related queries:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {msg.suggestions.map((suggestion, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleSend(suggestion)}
+                                                className="text-[10px] px-2 py-1 bg-muted hover:bg-primary/15 hover:text-primary rounded-full transition-colors"
+                                            >
+                                                {suggestion}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}
                 {isLoading && (
                     <div className="flex justify-start">
-                        <div className="bg-white rounded-2xl rounded-bl-none px-4 py-3 shadow-sm border flex items-center gap-2">
+                        <div className="bg-card rounded-2xl rounded-bl-none px-4 py-3 shadow-sm border border-border flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                            <span className="text-xs text-slate-500">Processing...</span>
+                            <span className="text-xs text-muted-foreground">Processing...</span>
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-white border-t shrink-0">
+            <div className="p-4 bg-card border-t border-border shrink-0">
                 <form
                     onSubmit={(e) => { e.preventDefault(); handleSend(); }}
                     className="flex gap-2"
@@ -220,13 +262,13 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
                         variant="outline"
                         size="icon"
                         onClick={startListening}
-                        className={cn("rounded-full transition-all border-slate-200", isListening ? "bg-red-100 text-red-600 border-red-200 animate-pulse" : "")}
+                        className={cn("rounded-full transition-all border-border", isListening ? "bg-red-100 text-red-600 border-red-200 animate-pulse" : "")}
                     >
                         {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                     </Button>
 
                     <input
-                        className="flex-1 bg-slate-100 border-0 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        className="flex-1 bg-muted border border-border rounded-full px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         placeholder={isListening ? "Listening..." : "Ask or say 'Go to...'"}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
@@ -236,7 +278,7 @@ export const ChatInterface = forwardRef<ChatInterfaceRef, ChatInterfaceProps>(({
                         <Send className="h-4 w-4" />
                     </Button>
                 </form>
-                <p className="text-[10px] text-center text-slate-400 mt-2">
+                <p className="text-[10px] text-center text-muted-foreground mt-2">
                     Tip: Try "How are sales today?" or "Go to inventory"
                 </p>
             </div>

@@ -24,6 +24,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SuggestionBanner } from "@/components/invoice/SuggestionBanner";
 
 const CATEGORIES = ["All", "General", "Food", "Water", "Beverage"];
 
@@ -73,6 +74,7 @@ export default function POSPage() {
 
     // Cart State
     const [cart, setCart] = useState<{ id: string, qty: number }[]>([]);
+    const [lastAddedProductId, setLastAddedProductId] = useState<string | null>(null);
 
     // Invoice State
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -184,6 +186,8 @@ export default function POSPage() {
             }
             return [...prev, { id: productId, qty: 1 }];
         });
+        
+        setLastAddedProductId(productId);
     };
 
     const updateQty = (id: string, delta: number) => {
@@ -244,10 +248,14 @@ export default function POSPage() {
     const remainingAmount = paymentMode === 'CREDIT' ? displayTotal : Math.max(0, displayTotal - (partialPayment || 0));
 
     const handleCheckout = (mode: "CASH" | "UPI" | "CHEQUE" | "CREDIT") => {
-        setPaymentMode(mode);
-        if (mode === "CREDIT") {
-            setPartialPayment(null); // Clear partial payment for credit sales
+        if (!selectedCustomerId) {
+            toast.error("Please select a customer first!");
+            return;
         }
+        setPaymentMode(mode);
+        // Do not clear partial payment automatically anymore, let user control it.
+        // If mode is CREDIT and no partial payment, then Paid = 0, Remaining = Total.
+        // If mode is CREDIT and has partial payment, Paid = Partial, Remaining = Total - Partial.
         setShowInvoiceModal(true);
     };
 
@@ -495,6 +503,12 @@ export default function POSPage() {
                     <ShoppingCart className="h-5 w-5" /> Current Order
                 </div>
 
+                <SuggestionBanner 
+                    productId={lastAddedProductId}
+                    productName={dbProducts.find(p => p.id === lastAddedProductId)?.name || null}
+                    onAddItem={addToCart}
+                />
+
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2">
                     {cart.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50">
@@ -593,55 +607,54 @@ export default function POSPage() {
                                     }
                                 }}
                             />
-                            <Input
-                                type="number"
-                                placeholder="Discount ₹"
-                                className="flex-1"
-                                value={discount?.type === 'FIXED' ? discount.value : ''}
-                                onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!isNaN(val) && val >= 0) {
-                                        setDiscount({ type: 'FIXED', value: val });
-                                    } else if (e.target.value === '') {
-                                        setDiscount(null);
-                                    }
-                                }}
-                            />
                             {discount && (
                                 <Button variant="ghost" size="icon" onClick={() => setDiscount(null)}>
                                     <X className="h-4 w-4" />
                                 </Button>
                             )}
                         </div>
-                        {paymentMode !== 'CREDIT' && (
-                            <div className="flex gap-2">
-                                <Input
-                                    type="number"
-                                    placeholder="Partial payment amount"
-                                    value={partialPayment || ''}
-                                    onChange={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!isNaN(val) && val >= 0) {
-                                            setPartialPayment(val);
-                                        } else if (e.target.value === '') {
-                                            setPartialPayment(null);
-                                        }
-                                    }}
-                                />
-                                {partialPayment && (
-                                    <Button variant="ghost" size="icon" onClick={() => setPartialPayment(null)}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                )}
-                            </div>
-                        )}
+                        {/* Partial Payment Input - Always visible if needed, logic handled in checkout */}
+                        <div className="flex gap-2">
+                            <Input
+                                type="number"
+                                placeholder="Partial payment amount"
+                                value={partialPayment || ''}
+                                onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                        setPartialPayment(val);
+                                    } else if (e.target.value === '') {
+                                        setPartialPayment(null);
+                                    }
+                                }}
+                            />
+                            {partialPayment && (
+                                <Button variant="ghost" size="icon" onClick={() => setPartialPayment(null)}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Select Customer *</label>
+                        <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select Customer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {dbCustomers.map(c => (
+                                    <SelectItem key={c.id} value={c.id}>{c.name} ({c.address})</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
                         <Button
                             className="w-full bg-green-600 hover:bg-green-700"
                             size="lg"
-                            disabled={cart.length === 0 || !selectedCustomerId}
+                            disabled={cart.length === 0}
                             onClick={() => handleCheckout("CASH")}
                         >
                             <Banknote className="mr-2 h-4 w-4" /> Cash
@@ -650,7 +663,7 @@ export default function POSPage() {
                             className="w-full"
                             size="lg"
                             variant="outline"
-                            disabled={cart.length === 0 || !selectedCustomerId}
+                            disabled={cart.length === 0}
                             onClick={() => handleCheckout("UPI")}
                         >
                             <QrCode className="mr-2 h-4 w-4" /> UPI
@@ -659,7 +672,7 @@ export default function POSPage() {
                             className="w-full"
                             size="lg"
                             variant="secondary"
-                            disabled={cart.length === 0 || !selectedCustomerId}
+                            disabled={cart.length === 0}
                             onClick={() => handleCheckout("CHEQUE")}
                         >
                             <CreditCard className="mr-2 h-4 w-4" /> Cheque
@@ -668,7 +681,7 @@ export default function POSPage() {
                             className="w-full"
                             size="lg"
                             variant="outline"
-                            disabled={cart.length === 0 || !selectedCustomerId}
+                            disabled={cart.length === 0}
                             onClick={() => handleCheckout("CREDIT")}
                         >
                             <CreditCard className="mr-2 h-4 w-4" /> Credit
@@ -682,22 +695,10 @@ export default function POSPage() {
                 <div className="grid grid-cols-2 gap-6 h-full">
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Select Customer</label>
-                            <select
-                                className="w-full h-10 px-3 rounded-md border text-sm"
-                                value={selectedCustomerId}
-                                onChange={(e) => {
-                                    setSelectedCustomerId(e.target.value);
-                                    setGeneratedInvoice(null);
-                                    setPreviewUrl(null);
-                                }}
-                                disabled={!!generatedInvoice}
-                            >
-                                <option value="" disabled>Select Customer...</option>
-                                {dbCustomers.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name} ({c.address})</option>
-                                ))}
-                            </select>
+                            <label className="text-sm font-medium">Customer</label>
+                            <div className="p-2 border rounded bg-muted/20 text-sm font-semibold">
+                                {dbCustomers.find(c => c.id === selectedCustomerId)?.name || "Unknown"}
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -747,6 +748,20 @@ export default function POSPage() {
                                     <Button className="w-full gap-2" variant="outline" onClick={handlePrint}>
                                         <Printer className="h-4 w-4" /> Print
                                     </Button>
+                                    <Button className="w-full gap-2 col-span-2" variant="secondary" onClick={() => {
+                                        if (previewUrl) {
+                                            const a = document.createElement('a');
+                                            a.href = previewUrl;
+                                            a.download = `Invoice-${generatedInvoice.invoiceNo}.pdf`;
+                                            a.click();
+                                            toast.success("Invoice downloaded!");
+                                        }
+                                    }}>
+                                        <ArrowUpDown className="h-4 w-4" /> Download PDF
+                                    </Button>
+                                </div>
+                                <div className="text-center text-xs text-muted-foreground bg-green-50 text-green-700 p-2 rounded">
+                                    Invoice saved successfully to database via {paymentMode} mode.
                                 </div>
                                 <Button className="w-full gap-2" size="lg" onClick={handleNewOrder}>
                                     <Plus className="h-4 w-4" /> New Order

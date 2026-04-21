@@ -30,8 +30,9 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "scripts/**/*.js",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
@@ -40,6 +41,7 @@
     "node_modules",
     "_dropped_v2_server",
     "_dropped_v2_app",
-    "src/scripts"
+    "src/scripts",
+    "ML Updation !!!"
   ]
 }

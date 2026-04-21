@@ -40,9 +40,8 @@ export default function RestockPage() {
         const res = await predictStockoutAction(currentCompany);
 
         if (res.success && res.predictions) {
-            // Filter strictly for items needing attention (Low or Critical)
-            const urgent = res.predictions.filter((p: any) => p.status === 'LOW' || p.status === 'CRITICAL');
-            setLowStockItems(urgent);
+            // Give user full visibility into ML algorithm calculations
+            setLowStockItems(res.predictions);
         }
         setLoading(false);
     };
@@ -156,7 +155,7 @@ export default function RestockPage() {
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
                                         <h3 className="font-bold text-lg">{item.productName}</h3>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${item.status === 'CRITICAL' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${item.status === 'CRITICAL' ? 'bg-red-100 text-red-700' : item.status === 'LOW' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                                             {item.status}
                                         </span>
                                     </div>

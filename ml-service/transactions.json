@@ -1,0 +1,37 @@
+[
+  {
+    "invoiceId": "cmjiv19eu0000ur35878iuf9k",
+    "productIds": [
+      "BIS-10L",
+      "BIS-20L"
+    ],
+    "productNames": [
+      "Bisleri Water 10L Jar",
+      "Bisleri Water 20L Jar"
+    ]
+  },
+  {
+    "invoiceId": "cmjv4yhd50000urhl02k95mdj",
+    "productIds": [
+      "cmjfylt900007urjncun99le7",
+      "cmjfylt92000aurjnp7fngqak"
+    ],
+    "productNames": [
+      "Bisleri Water 20L Jar",
+      "Bisleri Bliss 1L"
+    ]
+  },
+  {
+    "invoiceId": "cmkjt38mh0000urk8gt5t65uh",
+    "productIds": [
+      "cmjfylt8v0002urjn44l8ic9t",
+      "cmjfylt8x0005urjn1qruy7sg",
+      "cmjfylt8x0004urjnuqnjy311"
+    ],
+    "productNames": [
+      "Bisleri Water 500ml",
+      "Bisleri Water 5L Jar",
+      "Bisleri Water 2L"
+    ]
+  }
+]

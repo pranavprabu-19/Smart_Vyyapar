@@ -1,7 +1,9 @@
-import { CreditCard, DollarSign, Package, Users, TrendingUp, Warehouse, FileText, Truck, AlertCircle } from "lucide-react";
+import { CreditCard, DollarSign, Package, Users, Warehouse, FileText, Truck, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { OverviewCharts } from "@/components/dashboard/overview-charts";
-import { getDashboardMetrics } from "@/actions/dashboard";
+import { SmartInsights } from "@/components/dashboard/smart-insights";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
+import { getDashboardMetrics, getSmartInsights, getRecentActivity } from "@/actions/dashboard";
 import { cookies } from "next/headers";
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { QuickActions } from "@/components/dashboard/quick-actions";
@@ -11,9 +13,13 @@ import { Button } from "@/components/ui/button";
 export default async function DashboardPage() {
     const cookieStore = await cookies();
     const selectedCompany = cookieStore.get("selectedCompany")?.value || "Sai Associates";
+    const company = decodeURIComponent(selectedCompany);
 
-    // Fetch Real Data from Server Action
-    const metrics = await getDashboardMetrics(decodeURIComponent(selectedCompany));
+    const [metrics, insights, activity] = await Promise.all([
+        getDashboardMetrics(company),
+        getSmartInsights(company),
+        getRecentActivity(company, 8),
+    ]);
 
     const kpiCards = [
         {
@@ -195,8 +201,16 @@ export default async function DashboardPage() {
                 </Card>
             )}
 
-            {/* Charts Section */}
-            <OverviewCharts graphData={metrics.weeklySales} recentSales={metrics.recentSales} />
+            {/* Charts left, Insights + Activity right */}
+            <div className="grid gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <OverviewCharts graphData={metrics.weeklySales} recentSales={metrics.recentSales} />
+                </div>
+                <div className="flex flex-col gap-6">
+                    <SmartInsights insights={insights as any} />
+                    <ActivityFeed items={activity} />
+                </div>
+            </div>
         </div>
     );
 }

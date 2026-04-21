@@ -13,9 +13,10 @@ interface PageShellProps {
     children?: React.ReactNode;
     className?: string;
     action?: React.ReactNode;
+    icon?: React.ReactNode;
 }
 
-export function PageShell({ title, description, children, className, action }: PageShellProps) {
+export function PageShell({ title, description, children, className, action, icon }: PageShellProps) {
     const { user, login } = useAuth();
 
     return (
@@ -29,7 +30,10 @@ export function PageShell({ title, description, children, className, action }: P
                             </Button>
                         </Link>
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{title}</h1>
+                            <div className="flex items-center gap-2">
+                                {icon && <div className="text-primary">{icon}</div>}
+                                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{title}</h1>
+                            </div>
                             {description && (
                                 <p className="text-sm text-muted-foreground mt-1">{description}</p>
                             )}

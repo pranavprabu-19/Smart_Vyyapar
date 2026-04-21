@@ -23,6 +23,7 @@ const features = [
             { name: "Accounting Module", free: false, premium: true },
             { name: "WhatsApp Connect", free: false, premium: true },
             { name: "Google Profile Manager", free: true, premium: true },
+            { name: "Stock capture on site photo", free: true, premium: true },
         ]
     },
     {

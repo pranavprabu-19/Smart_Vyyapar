@@ -1,0 +1,40 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// SmartVyapar Phase 1 — Prisma schema additions
+// Merge these fields into your existing schema.prisma
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Add to your existing Supplier model ──────────────────────────────────────
+// model Supplier {
+//   ...existing fields...
+//   leadTimeDays  Int      @default(7)   // Phase 1: days from order to delivery
+// }
+
+// ── Add to your existing Customer model (if not already present) ──────────────
+// model Customer {
+//   ...existing fields...
+//   creditLimit   Float    @default(0)   // Phase 1: formal credit ceiling
+// }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full example models showing where the fields sit
+// ─────────────────────────────────────────────────────────────────────────────
+
+// model Supplier {
+//   id           String    @id @default(cuid())
+//   name         String
+//   email        String?
+//   phone        String?
+//   address      String?
+//   leadTimeDays Int       @default(7)    // ← Phase 1 addition
+//   businessId   String
+//   business     Business  @relation(fields: [businessId], references: [id])
+//   products     Product[]
+//   createdAt    DateTime  @default(now())
+//   updatedAt    DateTime  @updatedAt
+// }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// After updating schema.prisma, run:
+//   npx prisma migrate dev --name phase1_ml_signals
+//   npx prisma generate
+// ─────────────────────────────────────────────────────────────────────────────

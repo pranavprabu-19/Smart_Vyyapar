@@ -9,6 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Users, Search, Plus, MapPin, Phone, Mail, FileText, User, Pencil, DollarSign, TrendingUp, AlertCircle, CreditCard } from "lucide-react";
 import { useCompany } from "@/lib/company-context";
 import { getCustomersAction, saveCustomerAction } from "@/actions/customer";
+import { predictCustomerRiskAction } from "@/actions/customer-prediction";
+import { prepareLatestInvoiceReminderManualShare } from "@/actions/reminder";
+import { downloadPdfFromUrl, shareViaWhatsApp } from "@/lib/share-utils";
+import { StatementExportButton } from "@/components/dashboard/customers/statement-export-button";
+import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 
@@ -20,6 +25,7 @@ const MapView = dynamic(() => import('@/components/ui/map-view'), {
 export default function CustomersPage() {
     const { currentCompany } = useCompany();
     const [customers, setCustomers] = useState<any[]>([]);
+    const [customerRisks, setCustomerRisks] = useState<Record<string, any>>({});
     const [search, setSearch] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -47,9 +53,17 @@ export default function CustomersPage() {
 
     const loadCustomers = async () => {
         setIsLoading(true);
-        const res = await getCustomersAction(currentCompany);
+        const [res, riskRes] = await Promise.all([
+            getCustomersAction(currentCompany),
+            predictCustomerRiskAction(currentCompany)
+        ]);
         if (res.success && res.customers) {
             setCustomers(res.customers);
+        }
+        if (riskRes.success && riskRes.data) {
+            const riskMap: Record<string, any> = {};
+            riskRes.data.forEach((r: any) => { riskMap[r.customer_id] = r; });
+            setCustomerRisks(riskMap);
         }
         setIsLoading(false);
     };
@@ -190,9 +204,24 @@ export default function CustomersPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-6 text-xs mt-1"
-                                                onClick={() => {
-                                                    const msg = `Hello ${customer.name},\nYour outstanding balance is ₹${customer.balance}. Please clear your dues at your earliest convenience.\n\n- ${currentCompany}`;
-                                                    window.open(`https://wa.me/91${customer.phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                                onClick={async () => {
+                                                    if (!customer.phone) return;
+                                                    const digits = String(customer.phone).replace(/\D/g, "");
+                                                    const res = await prepareLatestInvoiceReminderManualShare({
+                                                        companyName: currentCompany,
+                                                        customerId: customer.id,
+                                                        phone: digits,
+                                                    });
+                                                    if (res.success && res.message && res.pdfUrl) {
+                                                        shareViaWhatsApp(res.message, digits);
+                                                        const safe = String(customer.name).replace(/[^\w.-]+/g, "_").slice(0, 40);
+                                                        await downloadPdfFromUrl(res.pdfUrl, `reminder-${safe}.pdf`);
+                                                        toast.success("WhatsApp opened — PDF downloaded; attach from Downloads");
+                                                    } else {
+                                                        const msg = `Hello ${customer.name},\nYour outstanding balance is ₹${customer.balance}. Please clear your dues at your earliest convenience.\n\n- ${currentCompany}`;
+                                                        shareViaWhatsApp(msg, digits);
+                                                        toast.warning(res.error || "No pending invoice — sent balance reminder only");
+                                                    }
                                                 }}
                                             >
                                                 Remind
@@ -238,6 +267,12 @@ export default function CustomersPage() {
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
+                                    {customerRisks[c.id]?.high_risk && (
+                                        <Badge variant="destructive" className="animate-pulse shadow-sm text-[10px]">High Risk</Badge>
+                                    )}
+                                    {!customerRisks[c.id]?.high_risk && customerRisks[c.id]?.risk_tier === "medium" && (
+                                        <Badge variant="outline" className="text-yellow-600 border-yellow-200 bg-yellow-50 text-[10px]">Medium Risk</Badge>
+                                    )}
                                     {c.gstin && <span className="text-[10px] font-mono bg-secondary px-2 py-1 rounded">GST: {c.gstin}</span>}
                                     <Button
                                         variant="ghost"
@@ -295,9 +330,24 @@ export default function CustomersPage() {
                                                 variant="outline"
                                                 size="sm"
                                                 className="h-7 text-xs gap-1 hover:bg-green-50 hover:text-green-700 border-green-200"
-                                                onClick={() => {
-                                                    const msg = `Hello ${c.name},\nYour outstanding balance is ₹${c.balance}. Please clear your dues at your earliest convenience.\n\n- ${currentCompany}`;
-                                                    window.open(`https://wa.me/91${c.phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                                onClick={async () => {
+                                                    if (!c.phone) return;
+                                                    const digits = String(c.phone).replace(/\D/g, "");
+                                                    const res = await prepareLatestInvoiceReminderManualShare({
+                                                        companyName: currentCompany,
+                                                        customerId: c.id,
+                                                        phone: digits,
+                                                    });
+                                                    if (res.success && res.message && res.pdfUrl) {
+                                                        shareViaWhatsApp(res.message, digits);
+                                                        const safe = String(c.name).replace(/[^\w.-]+/g, "_").slice(0, 40);
+                                                        await downloadPdfFromUrl(res.pdfUrl, `reminder-${safe}.pdf`);
+                                                        toast.success("WhatsApp opened — PDF downloaded; attach from Downloads");
+                                                    } else {
+                                                        const msg = `Hello ${c.name},\nYour outstanding balance is ₹${c.balance}. Please clear your dues at your earliest convenience.\n\n- ${currentCompany}`;
+                                                        shareViaWhatsApp(msg, digits);
+                                                        toast.warning(res.error || "No pending invoice — sent balance reminder only");
+                                                    }
                                                 }}
                                             >
                                                 <Phone className="h-3 w-3" /> Remind
@@ -312,6 +362,7 @@ export default function CustomersPage() {
                                                 <FileText className="h-3 w-3" /> View
                                             </Button>
                                         </Link>
+                                        <StatementExportButton customerId={c.id} companyName={currentCompany} compact />
                                     </div>
                                 </div>
                             </CardContent>

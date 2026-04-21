@@ -303,7 +303,7 @@ export default function TripsPage() {
     return (
         <PageShell
             title="Trip Sheets & Deliveries"
-            description={`Manage daily delivery routes for ${currentCompany}.`}
+            description={`Manage daily delivery routes for ${currentCompany}. Baseline routing uses nearest-neighbor sequencing with optional distance-API scoring.`}
             action={
                 <div className="flex gap-2 bg-muted/20 p-1 rounded-lg">
                     <Button size="sm" variant={view === 'CURRENT' ? 'secondary' : 'ghost'} onClick={() => setView('CURRENT')}>Current Trip</Button>

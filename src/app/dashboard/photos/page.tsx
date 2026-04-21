@@ -4,18 +4,21 @@ import { useState, useRef, useEffect } from "react";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { Card, CardContent, CardTitle, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Camera, MapPin, Save, RefreshCw, Upload, Crosshair, CheckCircle, XCircle } from "lucide-react";
+import { Camera, MapPin, Save, RefreshCw, Upload, CheckCircle, XCircle, Package, Plus, Trash2, Share2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { savePhotoAction, getPhotosAction } from "@/actions/photos";
+import { savePhotoAction, getPhotosAction, type StockSnapshotItem } from "@/actions/photos";
 import { getCustomersAction } from "@/actions/customer";
+import { getProductsAction } from "@/actions/inventory";
+import { shareSitePhotosViaWhatsApp } from "@/lib/share-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateDistance } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 // Dynamically import MapView to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import('@/components/ui/map-view'), {
@@ -31,6 +34,7 @@ type PhotoRecord = {
     user: string;
     role: string;
     company: string;
+    stockSnapshot?: StockSnapshotItem[];
 };
 
 type Customer = {
@@ -40,6 +44,8 @@ type Customer = {
     lng?: number | null;
     address: string;
 };
+
+type Product = { id: string; name: string; sku: string };
 
 export default function SitePhotosPage() {
     const { user } = useAuth();
@@ -60,11 +66,17 @@ export default function SitePhotosPage() {
 
     // Detailed View State
     const [selectedPhoto, setSelectedPhoto] = useState<PhotoRecord | null>(null);
+    const [sharePhone, setSharePhone] = useState("");
+
+    // Stock snapshot
+    const [productsList, setProductsList] = useState<Product[]>([]);
+    const [snapshotRows, setSnapshotRows] = useState<StockSnapshotItem[]>([]);
 
     // Initial Load
     useEffect(() => {
         loadPhotos();
         loadCustomers();
+        loadProducts();
         return () => stopCamera();
     }, [currentCompany]);
 
@@ -90,6 +102,13 @@ export default function SitePhotosPage() {
         }
     };
 
+    const loadProducts = async () => {
+        const res = await getProductsAction(currentCompany);
+        if (res.success && res.products) {
+            setProductsList(res.products.map((p: any) => ({ id: p.id, name: p.name, sku: p.sku })));
+        }
+    };
+
     const loadPhotos = async () => {
         const res = await getPhotosAction(currentCompany);
         if (res.success && res.photos) {
@@ -106,7 +125,14 @@ export default function SitePhotosPage() {
                 },
                 user: p.userName,
                 role: p.userRole,
-                company: p.companyName
+                company: p.companyName,
+                stockSnapshot: (() => {
+                    try {
+                        return p.stockSnapshot ? JSON.parse(p.stockSnapshot) : undefined;
+                    } catch {
+                        return undefined;
+                    }
+                })()
             }));
             setSavedPhotos(mapped);
         }
@@ -116,6 +142,7 @@ export default function SitePhotosPage() {
         setCapturedImage(null);
         setLocation(null);
         setDistance(null);
+        setSnapshotRows([]);
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: "environment" }
@@ -240,7 +267,8 @@ export default function SitePhotosPage() {
             isMock: location.isMock || false,
             userName: user.name,
             userRole: user.role || "Unknown",
-            companyName: currentCompany
+            companyName: currentCompany,
+            stockSnapshot: snapshotRows.length > 0 ? snapshotRows : undefined
         });
 
         if (res.success && res.photo) {
@@ -250,16 +278,30 @@ export default function SitePhotosPage() {
             setLocation(null);
             setDistance(null);
             setSelectedCustomerId("");
+            setSnapshotRows([]);
         } else {
             toast.error("Failed to save: " + res.error);
         }
         setIsSaving(false);
     };
 
+    const addSnapshotRow = () => {
+        const first = productsList[0];
+        if (!first) return;
+        setSnapshotRows((r) => [...r, { productId: first.id, name: first.name, qty: 1 }]);
+    };
+    const updateSnapshotRow = (i: number, up: Partial<StockSnapshotItem>) => {
+        setSnapshotRows((r) => r.map((x, j) => (j === i ? { ...x, ...up } : x)));
+    };
+    const removeSnapshotRow = (i: number) => {
+        setSnapshotRows((r) => r.filter((_, j) => j !== i));
+    };
+
     const retake = () => {
         setCapturedImage(null);
         setLocation(null);
         setDistance(null);
+        setSnapshotRows([]);
         startCamera();
     };
 
@@ -284,6 +326,7 @@ export default function SitePhotosPage() {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
+                                                setSnapshotRows([]);
                                                 const reader = new FileReader();
                                                 reader.onloadend = () => setCapturedImage(reader.result as string);
                                                 reader.readAsDataURL(file);
@@ -383,6 +426,51 @@ export default function SitePhotosPage() {
                             </div>
                         </Card>
                     )}
+
+                    {/* Stock snapshot (optional) */}
+                    {capturedImage && location && (
+                        <Card className="p-4 space-y-4">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <Package className="h-4 w-4" /> Stock snapshot (optional)
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground">Capture on-site stock counts when saving this photo.</p>
+                            <div className="space-y-3">
+                                {snapshotRows.map((row, i) => (
+                                    <div key={i} className="flex gap-2 items-center">
+                                        <Select
+                                            value={row.productId}
+                                            onValueChange={(v) => {
+                                                const p = productsList.find((x) => x.id === v);
+                                                if (p) updateSnapshotRow(i, { productId: p.id, name: p.name });
+                                            }}
+                                        >
+                                            <SelectTrigger className="flex-1">
+                                                <SelectValue placeholder="Product" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {productsList.map((p) => (
+                                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            className="w-20"
+                                            value={row.qty}
+                                            onChange={(e) => updateSnapshotRow(i, { qty: parseInt(e.target.value, 10) || 1 })}
+                                        />
+                                        <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeSnapshotRow(i)}>
+                                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm" onClick={addSnapshotRow} className="gap-2" disabled={!productsList.length}>
+                                    <Plus className="h-4 w-4" /> Add product
+                                </Button>
+                            </div>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Right Column: List */}
@@ -412,6 +500,12 @@ export default function SitePhotosPage() {
                                                 <MapPin className="h-3 w-3" />
                                                 {photo.location.address?.substring(0, 30)}...
                                             </div>
+                                            {photo.stockSnapshot && photo.stockSnapshot.length > 0 && (
+                                                <div className="flex items-center gap-1 text-primary">
+                                                    <Package className="h-3 w-3" />
+                                                    {photo.stockSnapshot.length} item(s)
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -438,8 +532,50 @@ export default function SitePhotosPage() {
                                     <div className="font-medium">{selectedPhoto.user}</div>
                                 </div>
                                 <div>
-                                    <div className="text-muted-foreground text-xs">Distance / Address</div>
+                                    <div className="text-muted-foreground text-xs">Address</div>
                                     <div className="font-medium truncate">{selectedPhoto.location.address}</div>
+                                </div>
+                                {selectedPhoto.stockSnapshot && selectedPhoto.stockSnapshot.length > 0 && (
+                                    <div className="col-span-2">
+                                        <div className="text-muted-foreground text-xs mb-1 flex items-center gap-1">
+                                            <Package className="h-3 w-3" /> Stock snapshot
+                                        </div>
+                                        <div className="rounded-lg border bg-muted/30 p-2 space-y-1">
+                                            {selectedPhoto.stockSnapshot.map((s, i) => (
+                                                <div key={i} className="flex justify-between text-sm">
+                                                    <span>{s.name}</span>
+                                                    <span className="font-medium">× {s.qty}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="col-span-2 flex flex-wrap items-end gap-2 pt-2 border-t">
+                                    <div className="flex-1 min-w-[160px]">
+                                        <Label className="text-xs text-muted-foreground">Phone (optional)</Label>
+                                        <Input
+                                            placeholder="91 9876543210"
+                                            value={sharePhone}
+                                            onChange={(e) => setSharePhone(e.target.value)}
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2"
+                                        onClick={() => {
+                                            shareSitePhotosViaWhatsApp({
+                                                user: selectedPhoto.user,
+                                                address: selectedPhoto.location.address,
+                                                timestamp: selectedPhoto.timestamp,
+                                                stockSnapshot: selectedPhoto.stockSnapshot,
+                                                phone: sharePhone.trim() || undefined,
+                                            });
+                                        }}
+                                    >
+                                        <Share2 className="h-4 w-4" /> Share via WhatsApp
+                                    </Button>
                                 </div>
                             </div>
                         </div>

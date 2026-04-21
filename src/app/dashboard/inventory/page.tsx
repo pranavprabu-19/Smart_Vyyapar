@@ -3,13 +3,15 @@
 import { useCompany } from "@/lib/company-context";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Plus, X, ArrowUpDown, Minus, RefreshCw, Package, TrendingUp, AlertCircle, Clock, Warehouse, ArrowRightLeft } from "lucide-react";
+import { Search, Plus, X, ArrowUpDown, Minus, RefreshCw, Package, TrendingUp, AlertCircle, Clock, Warehouse, ArrowRightLeft, FileScan } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { createProductAction, updateStockAction, getProductsAction } from "@/actions/inventory";
 import { getGodownsAction } from "@/actions/godown";
 import { StockTransfer } from "@/components/inventory/stock-transfer";
+import { StockAdjuster } from "@/components/inventory/stock-adjuster";
+import { OcrScanner } from "@/components/inventory/ocr-scanner";
 import {
     Select,
     SelectContent,
@@ -26,7 +28,9 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isOcrOpen, setIsOcrOpen] = useState(false);
     const [transferProduct, setTransferProduct] = useState<any>(null);
+    const [bulkAdjustProduct, setBulkAdjustProduct] = useState<any>(null);
     const [viewMode, setViewMode] = useState<'godown' | 'all'>('godown'); // 'godown' shows selected godown, 'all' shows all godowns
 
     // Filter State
@@ -64,17 +68,27 @@ export default function InventoryPage() {
 
             // Load Products with godown stock information
             const productsRes = await getProductsAction(currentCompany);
+            
+            // Load ML Predictions to overlay Analytics onto Products
+            const { predictStockoutAction } = await import("@/actions/stock-prediction");
+            const mlRes = await predictStockoutAction(currentCompany);
+
             if (productsRes.success && productsRes.products) {
-                setProducts(productsRes.products);
-            } else {
-                // Fallback to prediction action if needed
-                const { predictStockoutAction } = await import("@/actions/stock-prediction");
-                const res = await predictStockoutAction(currentCompany);
-                if (res.success && res.predictions) {
-                    setProducts(res.predictions);
-                } else {
-                    setProducts([]);
+                let finalProducts = productsRes.products;
+                
+                if (mlRes.success && mlRes.predictions) {
+                    finalProducts = finalProducts.map(p => {
+                        const pred = mlRes.predictions!.find(ml => ml.sku === p.sku);
+                        if (pred) {
+                            return { ...p, avgDailySales: pred.avgDailySales, status: pred.status, predictedStockoutDate: pred.predictedStockoutDate };
+                        }
+                        return p;
+                    });
                 }
+                
+                setProducts(finalProducts);
+            } else {
+                setProducts([]);
             }
         } catch (e) {
             console.error(e);
@@ -198,6 +212,9 @@ export default function InventoryPage() {
             description={`Managing stock for ${currentCompany}`}
             action={
                 <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsOcrOpen(true)} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                        <FileScan className="mr-2 h-4 w-4" /> Scan Invoice (OCR)
+                    </Button>
                     <Button variant="outline" onClick={() => window.location.href = '/dashboard/inventory/restock'}>
                         Restock Insights
                     </Button>
@@ -329,15 +346,14 @@ export default function InventoryPage() {
                                                 </td>
                                                 <td className="p-4 text-right">
                                                     {viewMode === 'godown' ? (
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleUpdateStock(item.sku, 1, 'DEDUCT')}>
-                                                                <Minus className="h-3 w-3" />
-                                                            </Button>
-                                                            <span className={`font-bold min-w-[3rem] text-center ${currentStock < 10 ? 'text-red-500' : ''}`}>{currentStock}</span>
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleUpdateStock(item.sku, 1, 'ADD')}>
-                                                                <Plus className="h-3 w-3" />
-                                                            </Button>
-                                                        </div>
+                                                        <StockAdjuster
+                                                            currentStock={currentStock}
+                                                            onUpdate={async (qty, type) => {
+                                                                await handleUpdateStock(item.sku, qty, type);
+                                                            }}
+                                                            isLowStock={currentStock < 10}
+                                                            compact={true}
+                                                        />
                                                     ) : (
                                                         <div className="text-right">
                                                             <div className="font-bold">{totalStock}</div>
@@ -379,6 +395,18 @@ export default function InventoryPage() {
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex gap-1 justify-end">
+                                                        {viewMode === 'godown' && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-7 text-xs bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                                                                onClick={() => setBulkAdjustProduct({ ...item, currentStock })}
+                                                                title="Bulk adjust stock quantity"
+                                                            >
+                                                                <ArrowUpDown className="h-3 w-3 mr-1" />
+                                                                Adjust
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
@@ -466,6 +494,65 @@ export default function InventoryPage() {
                     onClose={() => setTransferProduct(null)}
                 />
             )}
+
+            {/* Bulk Stock Adjustment Modal */}
+            {bulkAdjustProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-background w-full max-w-md rounded-lg shadow-xl p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 className="font-semibold text-lg">Adjust Stock</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    {bulkAdjustProduct.productName || bulkAdjustProduct.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    SKU: {bulkAdjustProduct.sku} | Godown: {godowns.find(g => g.id === selectedGodownId)?.name || 'Selected'}
+                                </p>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => setBulkAdjustProduct(null)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        <div className="py-4">
+                            <StockAdjuster
+                                currentStock={bulkAdjustProduct.currentStock}
+                                onUpdate={async (qty, type) => {
+                                    await handleUpdateStock(bulkAdjustProduct.sku, qty, type);
+                                    // Update the modal's current stock
+                                    setBulkAdjustProduct((prev: any) => ({
+                                        ...prev,
+                                        currentStock: type === 'ADD' 
+                                            ? prev.currentStock + qty 
+                                            : prev.currentStock - qty
+                                    }));
+                                }}
+                                isLowStock={bulkAdjustProduct.currentStock < 10}
+                                compact={false}
+                            />
+                        </div>
+
+                        <div className="flex gap-2 pt-4 border-t">
+                            <Button 
+                                variant="outline" 
+                                className="flex-1"
+                                onClick={() => setBulkAdjustProduct(null)}
+                            >
+                                Close
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* OCR Scanner Modal */}
+            <OcrScanner
+                open={isOcrOpen}
+                onOpenChange={setIsOcrOpen}
+                onSuccess={loadData}
+                currentCompany={currentCompany}
+                selectedGodownId={viewMode === 'godown' ? selectedGodownId : undefined}
+            />
+
         </PageShell>
     );
 }

@@ -30,13 +30,24 @@ export default function AiDashboardPage() {
     }, [currentCompany]);
 
     const suggestions = [
-        "How were sales today?",
-        "Predict low stock items",
+        // Business Analysis
+        "What's my profit margin this month?",
+        "Show business health score",
+        "Compare sales with last month",
+        // Financial
+        "Show GST summary for this month",
+        "What's my cash flow status?",
+        "Forecast next month's sales",
+        // Operations
+        "Who are my top 5 customers?",
+        "Show best-selling products",
+        "Which items need restocking?",
+        // Dues & Collections
         "Who owes me money?",
-        "Show revenue trend",
+        "Show overdue invoices",
+        // Quick Actions
         "Create new invoice",
-        "Open trip sheets",
-        "Add new customer"
+        "Go to inventory"
     ];
 
     return (
@@ -60,7 +71,7 @@ export default function AiDashboardPage() {
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-white border shadow-sm hover:shadow-md transition-shadow">
+                    <Card className="bg-card border shadow-sm hover:shadow-md transition-shadow">
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
                                 <p className="text-muted-foreground text-sm flex items-center gap-2">
@@ -71,13 +82,13 @@ export default function AiDashboardPage() {
                                 </h3>
                                 <p className="text-xs text-muted-foreground mt-1">Items below threshold</p>
                             </div>
-                            <div className="h-12 w-12 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center">
+                            <div className="h-12 w-12 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center">
                                 <AlertTriangle />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-white border shadow-sm hover:shadow-md transition-shadow">
+                    <Card className="bg-card border shadow-sm hover:shadow-md transition-shadow">
                         <CardContent className="p-6 flex items-center justify-between">
                             <div>
                                 <p className="text-muted-foreground text-sm flex items-center gap-2">
@@ -88,7 +99,7 @@ export default function AiDashboardPage() {
                                 </h3>
                                 <p className="text-xs text-muted-foreground mt-1">From {pulse?.customersWithDebt || 0} customers</p>
                             </div>
-                            <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
+                            <div className="h-12 w-12 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center">
                                 <Users />
                             </div>
                         </CardContent>
@@ -110,7 +121,7 @@ export default function AiDashboardPage() {
 
                     {/* Right - Suggestions & Info */}
                     <div className="w-80 hidden lg:flex flex-col gap-6 shrink-0">
-                        <Card className="bg-slate-50 border-0 shadow-sm">
+                        <Card className="bg-card border shadow-sm">
                             <CardContent className="p-6">
                                 <h4 className="font-bold text-sm flex items-center gap-2 mb-4">
                                     <Target className="h-4 w-4 text-blue-600" /> SMART SUGGESTIONS
@@ -119,7 +130,7 @@ export default function AiDashboardPage() {
                                     {suggestions.map((text, i) => (
                                         <button
                                             key={i}
-                                            className="w-full text-left p-3 text-sm bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-between group"
+                                            className="w-full text-left p-3 text-sm bg-background border border-border rounded-xl hover:border-primary/40 hover:text-primary transition-all flex items-center justify-between group"
                                             onClick={() => {
                                                 if (chatRef.current) {
                                                     chatRef.current.sendMessage(text);
@@ -134,25 +145,25 @@ export default function AiDashboardPage() {
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-blue-50/50 border-blue-100 border-dashed">
+                        <Card className="bg-primary/5 border-primary/20 border-dashed">
                             <CardContent className="p-6">
-                                <h4 className="font-bold text-xs text-blue-800 uppercase tracking-wider mb-2">Capability Radar</h4>
+                                <h4 className="font-bold text-xs text-primary uppercase tracking-wider mb-2">Capability Radar</h4>
                                 <div className="space-y-3 mt-4">
                                     <div className="flex items-center gap-3 text-sm">
                                         <Zap className="h-4 w-4 text-blue-600" />
-                                        <span className="text-slate-600">Zero-latency Navigation</span>
+                                        <span className="text-foreground/90">Zero-latency Navigation</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-sm">
                                         <History className="h-4 w-4 text-blue-600" />
-                                        <span className="text-slate-600">Complex Data Analysis</span>
+                                        <span className="text-foreground/90">Complex Data Analysis</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-sm">
                                         <Sparkles className="h-4 w-4 text-blue-600" />
-                                        <span className="text-slate-600">Smart Voice Commands</span>
+                                        <span className="text-foreground/90">Smart Voice Commands</span>
                                     </div>
                                 </div>
-                                <div className="mt-6 pt-6 border-t border-blue-100">
-                                    <p className="text-[10px] text-blue-700/60 leading-relaxed italic">
+                                <div className="mt-6 pt-6 border-t border-primary/20">
+                                    <p className="text-[10px] text-muted-foreground leading-relaxed italic">
                                         "Smart Assistant uses a hybrid of local intent-matching and secure LLM fallbacks for maximum performance."
                                     </p>
                                 </div>

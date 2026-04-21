@@ -4,9 +4,12 @@ import { PageShell } from "@/components/dashboard/page-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompany } from "@/lib/company-context";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from "recharts";
-import { TrendingUp, Users, DollarSign, Package, Lock, ShieldCheck, CheckCircle2, Smartphone, Search, MapPin, X, ArrowRight } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Package, Lock, ShieldCheck, CheckCircle2, Smartphone, Search, MapPin, X, ArrowRight, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 
 // --- Data Generation Helpers based on Real Data ---
@@ -143,9 +146,70 @@ export default function AnalyticsPage() {
 
     const netMargin = profitStats.totalRevenue > 0 ? (profitStats.totalProfit / profitStats.totalRevenue) * 100 : 0;
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        doc.text(`Analytics Report - ${currentCompany || 'All Companies'}`, 14, 15);
+        
+        const tableColumn = ["Invoice", "Customer", "Revenue", "Cost", "Profit", "Margin", "Status"];
+        const tableRows: any[] = [];
+
+        invoicesList.forEach(inv => {
+            const profit = inv.items.reduce((sum: number, item: any) => sum + ((item.price - (item.costPrice || item.price * 0.7)) * item.quantity), 0);
+            const totalCost = inv.items.reduce((sum: number, item: any) => sum + ((item.costPrice || item.price * 0.7) * item.quantity), 0);
+            const margin = totalCost + profit > 0 ? (profit / (totalCost + profit)) * 100 : 0;
+            
+            tableRows.push([
+                inv.invoiceNo,
+                inv.customerName,
+                `Rs ${inv.totalAmount.toFixed(2)}`,
+                `Rs ${totalCost.toFixed(2)}`,
+                `Rs ${profit.toFixed(2)}`,
+                `${margin.toFixed(1)}%`,
+                inv.status
+            ]);
+        });
+
+        autoTable(doc, { 
+            head: [tableColumn], 
+            body: tableRows, 
+            startY: 20 
+        });
+        doc.save(`Analytics_Report_${period}.pdf`);
+    };
+
+    const handleExportCSV = () => {
+        const rows = invoicesList.map(inv => {
+            const profit = inv.items.reduce((sum: number, item: any) => sum + ((item.price - (item.costPrice || item.price * 0.7)) * item.quantity), 0);
+            const totalCost = inv.items.reduce((sum: number, item: any) => sum + ((item.costPrice || item.price * 0.7) * item.quantity), 0);
+            const margin = totalCost + profit > 0 ? (profit / (totalCost + profit)) * 100 : 0;
+            return {
+                Invoice: inv.invoiceNo,
+                Customer: inv.customerName,
+                Revenue: inv.totalAmount,
+                'Est. Cost': totalCost,
+                'Net Profit': profit,
+                'Margin (%)': margin,
+                Status: inv.status
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Analytics");
+        XLSX.writeFile(workbook, `Analytics_Report_${period}.csv`);
+    };
+
     return (
         <PageShell title="Business Analytics" description={`Real-time insights for ${currentCompany}.`}>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between items-center mb-4">
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleExportPDF} className="flex gap-2 text-primary border-primary">
+                        <Download className="h-4 w-4" /> Export PDF
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex gap-2 text-emerald-600 border-emerald-600">
+                        <Download className="h-4 w-4" /> Export CSV
+                    </Button>
+                </div>
                 <select
                     className="p-2 border rounded-md text-sm bg-background"
                     value={period}

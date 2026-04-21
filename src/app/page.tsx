@@ -5,6 +5,7 @@ import { ArrowRight, BarChart3, Bot, Box, CheckCircle2, ShoppingBag, Truck, Rout
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useAuth, UserRole } from "@/lib/auth-context";
@@ -19,32 +20,44 @@ export default function LandingPage() {
   const features = [
     {
       title: "Professional Billing & Invoicing",
-      description: "Generate professional invoices instantly with GST compliance. Support for multiple payment modes, discounts, partial payments, and credit sales. Export to PDF, Excel, or send via WhatsApp.",
+      description:
+        "Generate GST-ready invoices with payment modes, credit sales, PDF export, CSV export, and WhatsApp share/reminders.",
+      status: "Live",
       icon: <FileText className="h-6 w-6 text-primary" />,
     },
     {
       title: "Multi-Godown Inventory Management",
-      description: "Track stock across multiple warehouses (godowns) with real-time inventory levels. Transfer stock between godowns, manage reorder points, and get low stock alerts by location.",
+      description:
+        "Track stock across godowns, transfer inventory between locations, and monitor low-stock thresholds with restock actions.",
+      status: "Live",
       icon: <Warehouse className="h-6 w-6 text-primary" />,
     },
     {
       title: "Payment Tracking & Collections",
-      description: "Track outstanding payments, send payment reminders via WhatsApp, and manage customer credit limits. Visual dashboards for collection efficiency and debtor management.",
+      description:
+        "Track outstanding balances, record collections, and send manual WhatsApp reminders with downloadable invoice PDFs.",
+      status: "Live",
       icon: <CreditCard className="h-6 w-6 text-primary" />,
     },
     {
       title: "Stock Reports & Analytics",
-      description: "Comprehensive stock reports including godown-wise, category-wise, and movement reports. Stock valuation, aging analysis, and turnover ratios for better inventory decisions.",
+      description:
+        "Stock reports are available for summary, godown-wise, category-wise, and low-stock views. Advanced turnover/aging insights are being expanded.",
+      status: "Growing",
       icon: <BarChart3 className="h-6 w-6 text-primary" />,
     },
     {
       title: "Route Optimization & Delivery",
-      description: "Intelligent route planning for deliveries. Optimize trips, reduce fuel costs, and improve delivery efficiency with real-time tracking.",
+      description:
+        "Trip planning and stop sequencing are available with nearest-stop routing; advanced optimization and fuel analytics are in progress.",
+      status: "Growing",
       icon: <Route className="h-6 w-6 text-primary" />,
     },
     {
       title: "Customer Management",
-      description: "Manage your distribution network with location-based customer insights, payment history, and visit planning. Generate customer statements and track performance.",
+      description:
+        "Manage customers, locations, balances, visit planning, reminders, and downloadable customer statements (CSV/PDF).",
+      status: "Live",
       icon: <Users className="h-6 w-6 text-primary" />,
     },
   ];
@@ -65,6 +78,7 @@ export default function LandingPage() {
             <Button variant="outline" size="sm" onClick={() => handleLogin("FIELD_WORKER")}>Field Worker</Button>
             <Button variant="outline" size="sm" onClick={() => handleLogin("DRIVER")}>Driver</Button>
             <Button variant="outline" size="sm" onClick={() => handleLogin("AUDITOR")}>Auditor</Button>
+            <Button variant="outline" size="sm" onClick={() => handleLogin("CA")}>CA</Button>
           </nav>
         </div>
       </header>
@@ -111,7 +125,7 @@ export default function LandingPage() {
             >
               <h2 className="text-3xl font-bold mb-4">Complete Billing & Inventory Solution</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Everything you need to manage billing, track inventory across multiple godowns, monitor payments, and make data-driven decisions.
+                Core operations are production-ready today, with advanced analytics modules rolling out in phases.
               </p>
             </motion.div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -128,7 +142,10 @@ export default function LandingPage() {
                       <div className="mb-4 h-12 w-12 rounded-lg gradient-primary/10 flex items-center justify-center border border-primary/20">
                         {feature.icon}
                       </div>
-                      <CardTitle className="text-xl">{feature.title}</CardTitle>
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-xl">{feature.title}</CardTitle>
+                        <Badge variant={feature.status === "Live" ? "default" : "secondary"}>{feature.status}</Badge>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <p className="text-muted-foreground">
@@ -138,6 +155,14 @@ export default function LandingPage() {
                   </Card>
                 </motion.div>
               ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-6 text-center">
+              Live = implemented and available now. Growing = available with ongoing upgrades.
+            </p>
+            <div className="mt-4 text-center">
+              <Link href="/feature-audit" className="text-sm text-primary hover:underline">
+                View detailed feature audit and roadmap
+              </Link>
             </div>
           </div>
         </section>

@@ -1,22 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, TrendingUp, AlertCircle, Warehouse, Download, FileText } from "lucide-react";
+import { Package, TrendingUp, AlertCircle, Warehouse } from "lucide-react";
 import { getProductsAction } from "@/actions/inventory";
 import { getGodownsAction, getGodownStatsAction } from "@/actions/godown";
 import { useCompany } from "@/lib/company-context";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ExportButton } from "@/components/dashboard/export-button";
 
 export default function StockReportsPage() {
     const { currentCompany } = useCompany();
     const [products, setProducts] = useState<any[]>([]);
     const [godowns, setGodowns] = useState<any[]>([]);
     const [godownStats, setGodownStats] = useState<any[]>([]);
+    const [movementSources, setMovementSources] = useState<string[]>([
+        "INVOICE_DEDUCTION",
+        "STOCK_TRANSFER",
+        "MANUAL_STOCK_UPDATE",
+    ]);
     const [loading, setLoading] = useState(true);
     const [selectedGodown, setSelectedGodown] = useState<string>("all");
     const [reportType, setReportType] = useState<'summary' | 'godown' | 'category' | 'low-stock'>('summary');
@@ -38,6 +44,13 @@ export default function StockReportsPage() {
             }
             if (statsRes.success && statsRes.stats) {
                 setGodownStats(statsRes.stats);
+            }
+            const semanticSources = [
+                ...(productsRes as any).stockSemantics?.movementSources || [],
+                ...(statsRes as any).stockSemantics?.movementSources || [],
+            ];
+            if (semanticSources.length > 0) {
+                setMovementSources(Array.from(new Set(semanticSources)));
             }
         } catch (error) {
             console.error("Failed to load data:", error);
@@ -77,10 +90,46 @@ export default function StockReportsPage() {
         return acc;
     }, {});
 
-    const handleExport = (format: 'pdf' | 'excel' | 'csv') => {
-        // TODO: Implement export functionality
-        alert(`Export to ${format.toUpperCase()} - Coming soon!`);
-    };
+    const exportRows = useMemo(() => {
+        if (reportType === "godown") {
+            return godownStats.map((g) => ({
+                godown: g.name,
+                location: g.location || "",
+                totalItems: g.totalItems,
+                totalQuantity: g.totalQuantity,
+                totalValue: Number((g.totalValue || 0).toFixed(2)),
+                lowStockItems: g.lowStockItems,
+            }));
+        }
+        if (reportType === "category") {
+            return Object.entries(categoryGroups).map(([name, group]: any) => ({
+                category: name,
+                products: group.products.length,
+                totalQuantity: group.totalQty,
+                totalValue: Number((group.totalValue || 0).toFixed(2)),
+            }));
+        }
+        if (reportType === "low-stock") {
+            return lowStockItems.map((p) => ({
+                product: p.name,
+                sku: p.sku,
+                stock: p.stock,
+                minStock: p.minStock,
+                gap: Math.max(0, (p.minStock || 0) - (p.stock || 0)),
+            }));
+        }
+        return filteredProducts.map((p) => {
+            const cost = p.costPrice || p.price * 0.7;
+            return {
+                product: p.name,
+                sku: p.sku,
+                stock: p.stock,
+                minStock: p.minStock,
+                costPrice: Number(cost.toFixed(2)),
+                stockValue: Number((p.stock * cost).toFixed(2)),
+            };
+        });
+    }, [reportType, godownStats, categoryGroups, lowStockItems, filteredProducts]);
 
     return (
         <PageShell
@@ -88,12 +137,11 @@ export default function StockReportsPage() {
             description="Comprehensive stock analysis and reports"
             action={
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => handleExport('csv')}>
-                        <Download className="mr-2 h-4 w-4" /> Export CSV
-                    </Button>
-                    <Button variant="outline" onClick={() => handleExport('excel')}>
-                        <Download className="mr-2 h-4 w-4" /> Export Excel
-                    </Button>
+                    <ExportButton
+                        data={exportRows}
+                        filename={`stock-report-${reportType}-${new Date().toISOString().split("T")[0]}`}
+                        title="Stock Report"
+                    />
                 </div>
             }
         >
@@ -124,6 +172,24 @@ export default function StockReportsPage() {
                     Low Stock
                 </Button>
             </div>
+            <Card className="mb-6 border-blue-400/30 bg-blue-500/10">
+                <CardContent className="pt-4 text-sm space-y-2">
+                    <p className="font-medium">Movement Scope & Source</p>
+                    <p className="text-muted-foreground">
+                        Stock movement is currently derived from three live events: invoice deductions, stock transfers, and manual stock updates.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {movementSources.map((source) => (
+                            <Badge key={source} variant="secondary">
+                                {source.replace(/_/g, " ")}
+                            </Badge>
+                        ))}
+                        <Badge variant="outline">
+                            Scope: {selectedGodown === "all" ? "Company-wide totals" : "Selected godown only"}
+                        </Badge>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Summary Report */}
             {reportType === 'summary' && (
@@ -176,7 +242,9 @@ export default function StockReportsPage() {
                     <Card variant="premium">
                         <CardHeader>
                             <div className="flex justify-between items-center">
-                                <CardTitle>Stock Summary</CardTitle>
+                                <CardTitle>
+                                    Stock Summary ({selectedGodown === "all" ? "Company-wide" : "Godown-specific"})
+                                </CardTitle>
                                 <Select value={selectedGodown} onValueChange={setSelectedGodown}>
                                     <SelectTrigger className="w-[200px]">
                                         <SelectValue placeholder="Filter by godown" />

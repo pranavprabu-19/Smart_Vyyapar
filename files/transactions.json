@@ -1,0 +1,91 @@
+[
+  {
+    "transactionId": "T001",
+    "date": "2024-01-10",
+    "items": [
+      { "productId": "P001", "productName": "Amul Milk 1L",    "category": "Dairy" },
+      { "productId": "P002", "productName": "Britannia Bread",  "category": "Bakery" },
+      { "productId": "P005", "productName": "Nescafe Coffee",   "category": "Beverages" }
+    ]
+  },
+  {
+    "transactionId": "T002",
+    "date": "2024-01-10",
+    "items": [
+      { "productId": "P003", "productName": "Lay's Chips",      "category": "Snacks" },
+      { "productId": "T004", "productName": "Pepsi 500ml",      "category": "Beverages" }
+    ]
+  },
+  {
+    "transactionId": "T003",
+    "date": "2024-01-11",
+    "items": [
+      { "productId": "P001", "productName": "Amul Milk 1L",    "category": "Dairy" },
+      { "productId": "P002", "productName": "Britannia Bread",  "category": "Bakery" },
+      { "productId": "P006", "productName": "Amul Butter 100g","category": "Dairy" }
+    ]
+  },
+  {
+    "transactionId": "T004",
+    "date": "2024-01-11",
+    "items": [
+      { "productId": "P003", "productName": "Lay's Chips",      "category": "Snacks" },
+      { "productId": "P007", "productName": "Kurkure 70g",      "category": "Snacks" },
+      { "productId": "T004", "productName": "Pepsi 500ml",      "category": "Beverages" }
+    ]
+  },
+  {
+    "transactionId": "T005",
+    "date": "2024-01-12",
+    "items": [
+      { "productId": "P001", "productName": "Amul Milk 1L",    "category": "Dairy" },
+      { "productId": "P008", "productName": "Sunfeast Biscuit", "category": "Snacks" },
+      { "productId": "P005", "productName": "Nescafe Coffee",   "category": "Beverages" }
+    ]
+  },
+  {
+    "transactionId": "T006",
+    "date": "2024-01-12",
+    "items": [
+      { "productId": "P002", "productName": "Britannia Bread",  "category": "Bakery" },
+      { "productId": "P006", "productName": "Amul Butter 100g","category": "Dairy" },
+      { "productId": "P009", "productName": "Kissan Jam 200g",  "category": "Bakery" }
+    ]
+  },
+  {
+    "transactionId": "T007",
+    "date": "2024-01-13",
+    "items": [
+      { "productId": "P003", "productName": "Lay's Chips",      "category": "Snacks" },
+      { "productId": "P008", "productName": "Sunfeast Biscuit", "category": "Snacks" },
+      { "productId": "P010", "productName": "Thums Up 500ml",   "category": "Beverages" }
+    ]
+  },
+  {
+    "transactionId": "T008",
+    "date": "2024-01-13",
+    "items": [
+      { "productId": "P001", "productName": "Amul Milk 1L",    "category": "Dairy" },
+      { "productId": "P006", "productName": "Amul Butter 100g","category": "Dairy" },
+      { "productId": "P002", "productName": "Britannia Bread",  "category": "Bakery" }
+    ]
+  },
+  {
+    "transactionId": "T009",
+    "date": "2024-01-14",
+    "items": [
+      { "productId": "P007", "productName": "Kurkure 70g",      "category": "Snacks" },
+      { "productId": "T004", "productName": "Pepsi 500ml",      "category": "Beverages" },
+      { "productId": "P003", "productName": "Lay's Chips",      "category": "Snacks" }
+    ]
+  },
+  {
+    "transactionId": "T010",
+    "date": "2024-01-14",
+    "items": [
+      { "productId": "P001", "productName": "Amul Milk 1L",    "category": "Dairy" },
+      { "productId": "P005", "productName": "Nescafe Coffee",   "category": "Beverages" },
+      { "productId": "P008", "productName": "Sunfeast Biscuit", "category": "Snacks" }
+    ]
+  }
+]

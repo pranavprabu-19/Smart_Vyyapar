@@ -10,9 +10,14 @@ import { useState, useMemo } from "react";
 import { generateInvoicePDF } from "@/lib/invoice-utils";
 import { updateInvoicePaymentAction } from "@/actions/invoice";
 import { useRouter } from "next/navigation";
-import { sendInvoiceWhatsAppAction } from "@/actions/communication";
+import {
+    prepareInvoiceManualWhatsAppAction,
+    prepareInvoiceManualWhatsAppFromDbAction,
+} from "@/actions/communication";
+import { downloadPdfFromUrl, shareViaWhatsApp } from "@/lib/share-utils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { ExportButton } from "@/components/dashboard/export-button";
 
 export default function InvoicesPage() {
     const { invoices, notifications } = useInvoice();
@@ -60,31 +65,18 @@ export default function InvoicesPage() {
         return filtered;
     }, [invoices, filter, searchTerm, dateRange]);
 
-    const handleExportCSV = () => {
-        const headers = ['Invoice No', 'Date', 'Customer', 'Amount', 'Payment Mode', 'Status'];
-        const rows = displayedInvoices.map(inv => [
-            inv.invoiceNo,
-            inv.date,
-            inv.customer.name,
-            inv.totalAmount.toFixed(2),
-            inv.paymentMode || 'CASH',
-            inv.status
-        ]);
-
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success('Invoice data exported to CSV');
-    };
+    const exportRows = useMemo(
+        () =>
+            displayedInvoices.map((inv) => ({
+                invoiceNo: inv.invoiceNo,
+                date: new Date(inv.date).toLocaleDateString("en-IN"),
+                customer: inv.customer.name,
+                amount: Number(inv.totalAmount.toFixed(2)),
+                paymentMode: inv.paymentMode || "CASH",
+                status: inv.status,
+            })),
+        [displayedInvoices]
+    );
 
     const handleView = async (invoice: any) => {
         // Re-generate PDF blob for preview
@@ -106,12 +98,34 @@ export default function InvoicesPage() {
     };
 
     const handleWhatsApp = async (invoice: any) => {
-        const promise = sendInvoiceWhatsAppAction(invoice, "91" + (invoice.customer.phone || "9677150152")); // Use mock phone for fallback or user's
-        toast.promise(promise, {
-            loading: 'Generating and Sending Invoice...',
-            success: (data) => data.message,
-            error: 'Failed to send WhatsApp'
-        });
+        const rawPhone = invoice.customer?.phone || "";
+        const digits = String(rawPhone).replace(/\D/g, "");
+        const phone = digits.length >= 10 ? digits : "9677150152";
+
+        toast.promise(
+            (async () => {
+                let res = await prepareInvoiceManualWhatsAppFromDbAction({
+                    invoiceId: invoice.id,
+                    companyName: invoice.companyName,
+                    phone,
+                });
+                if (!res.success && res.error === "Invoice not found for this company") {
+                    res = await prepareInvoiceManualWhatsAppAction(invoice, phone);
+                }
+                if (!res.success || !res.message || !res.pdfUrl) {
+                    throw new Error(res.error || "Could not prepare invoice PDF");
+                }
+                shareViaWhatsApp(res.message, phone);
+                const safeNo = String(invoice.invoiceNo).replace(/[^\w.-]+/g, "_");
+                await downloadPdfFromUrl(res.pdfUrl, `invoice-${safeNo}.pdf`);
+                return res;
+            })(),
+            {
+                loading: "Preparing invoice PDF and WhatsApp…",
+                success: "WhatsApp opened — PDF downloaded; attach it from Downloads",
+                error: (e) => (e instanceof Error ? e.message : "Failed to open WhatsApp"),
+            }
+        );
     };
 
     return (
@@ -267,10 +281,19 @@ export default function InvoicesPage() {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground">Export</label>
-                                <Button variant="outline" size="sm" className="w-full h-8 text-xs" onClick={handleExportCSV}>
-                                    <Download className="h-3 w-3 mr-1" />
-                                    Export CSV
-                                </Button>
+                                <ExportButton
+                                    data={exportRows}
+                                    filename={`invoices-${new Date().toISOString().split("T")[0]}`}
+                                    title="Invoices Report"
+                                    columns={[
+                                        { header: "Invoice No", key: "invoiceNo" },
+                                        { header: "Date", key: "date" },
+                                        { header: "Customer", key: "customer" },
+                                        { header: "Amount", key: "amount" },
+                                        { header: "Payment Mode", key: "paymentMode" },
+                                        { header: "Status", key: "status" },
+                                    ]}
+                                />
                             </div>
                         </div>
 

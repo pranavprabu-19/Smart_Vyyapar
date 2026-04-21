@@ -1,6 +1,7 @@
 
 import { getCustomerDetails } from "@/actions/customer";
 import { AddPaymentDialog } from "@/components/dashboard/customers/add-payment-dialog";
+import { StatementExportButton } from "@/components/dashboard/customers/statement-export-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Phone, Mail, MapPin, ReceiptIndianRupee, History } from "lucide-react";
@@ -31,6 +32,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
                 </div>
                 <div className="flex gap-2">
                     <AddPaymentDialog customerId={customer.id} customerName={customer.name} />
+                    <StatementExportButton customerId={customer.id} companyName={customer.companyName} />
                 </div>
             </div>
 

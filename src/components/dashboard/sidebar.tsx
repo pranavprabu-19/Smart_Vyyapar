@@ -4,10 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    BarChart3, Box, FileText, Home, Settings, ShoppingBag, Sparkles,
+    BarChart3, Box, FileText, Home, Settings, ShoppingBag, Sparkles, Star,
     ChevronDown, FileSpreadsheet, Percent, Factory, MessageSquare,
-    User, Bell, Truck, Users, TruckIcon, Camera, Clock, ShieldCheck, Warehouse
+    User, Bell, Truck, Users, TruckIcon, Camera, Clock, ShieldCheck, Warehouse,
+    IndianRupee, ShoppingCart, Tag, Route, RotateCcw, Calendar, PieChart, Calculator
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useCommandPalette } from "@/lib/command-palette-context";
 import { useState, useEffect } from "react";
 
 import { cn } from "@/lib/utils";
@@ -28,12 +31,24 @@ const sidebarItems: SidebarItem[] = [
     // Admin Master View
     { icon: Home, label: "Overview", href: "/dashboard/admin", roles: ["ADMIN"] },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics", roles: ["ADMIN"] },
+    { icon: PieChart, label: "Analytics Pro", href: "/dashboard/analytics-pro", roles: ["ADMIN"] },
+    { icon: Sparkles, label: "ML Intelligence", href: "/dashboard/ml-insights", roles: ["ADMIN", "SO_OFFICIER"] },
 
     // Core Operations
     { icon: Box, label: "Stock & Inventory", href: "/dashboard/inventory", roles: ["ADMIN", "SO_OFFICIER", "FIELD_WORKER", "AUDITOR"] },
     { icon: Warehouse, label: "Godowns", href: "/dashboard/godowns", roles: ["ADMIN", "SO_OFFICIER"] },
+    { icon: Calendar, label: "Expiry Tracking", href: "/dashboard/expiry-tracking", roles: ["ADMIN", "SO_OFFICIER"] },
     { icon: FileText, label: "Invoices & Billing", href: "/dashboard/invoices", roles: ["ADMIN", "EMPLOYEE"] },
     { icon: Users, label: "Customers", href: "/dashboard/customers", roles: ["ADMIN", "EMPLOYEE", "SO_OFFICIER"] },
+    { icon: IndianRupee, label: "Collections", href: "/dashboard/collections", roles: ["ADMIN", "EMPLOYEE", "SO_OFFICIER"] },
+    { icon: Calculator, label: "Assets", href: "/dashboard/assets", roles: ["ADMIN"] },
+
+    // Orders & Schemes (Distribution)
+    { icon: ShoppingCart, label: "Orders", href: "/dashboard/orders", roles: ["ADMIN", "EMPLOYEE", "SO_OFFICIER", "FIELD_WORKER"] },
+    { icon: Tag, label: "Schemes", href: "/dashboard/schemes", roles: ["ADMIN"] },
+    { icon: Route, label: "Beat Planning", href: "/dashboard/beats", roles: ["ADMIN", "SO_OFFICIER"] },
+    { icon: RotateCcw, label: "Returns", href: "/dashboard/returns", roles: ["ADMIN", "EMPLOYEE"] },
+    { icon: Truck, label: "Van Sales", href: "/dashboard/van-sales", roles: ["ADMIN", "DRIVER"] },
 
     // Field Work & Logistics
     { icon: Users, label: "Shop Visits", href: "/dashboard/visits", roles: ["ADMIN", "SO_OFFICIER", "FIELD_WORKER", "EMPLOYEE"] },
@@ -100,6 +115,7 @@ export function Sidebar() {
     const pathname = usePathname();
     const { user, logout } = useAuth();
     const { currentCompany, setCompany } = useCompany();
+    const palette = useCommandPalette();
     const { notifications } = useInvoice();
     const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
     const [availableCompanies, setAvailableCompanies] = useState<string[]>(["Sai Associates", "SNK Distributors"]);
@@ -127,14 +143,24 @@ export function Sidebar() {
         <div className="h-screen w-64 border-r bg-gradient-to-b from-card to-card/95 backdrop-blur-sm hidden md:flex flex-col shadow-xl z-20 relative">
             {/* Subtle gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
-            
-            {/* Company Switcher Header */}
+
+            {/* Company Switcher Header + North Star */}
             <div className="p-4 border-b bg-gradient-to-r from-muted/30 to-muted/10 backdrop-blur-sm relative z-10">
-                <div className="flex items-center gap-2 font-bold text-lg mb-2 px-2">
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
-                        <ShoppingBag className="h-5 w-5 text-primary" />
+                <div className="flex items-center justify-between mb-2 px-2">
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-2 font-bold text-lg rounded-md px-1 py-0.5 -mx-1 hover:bg-muted/40 transition-colors"
+                        title="Go to SmartVyapar home/login"
+                    >
+                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20 transition-transform duration-200 hover:scale-105">
+                            <ShoppingBag className="h-5 w-5 text-primary" />
+                        </div>
+                        <span className="text-gradient leading-none">SmartVyapar</span>
+                        <Star className="h-4 w-4 text-amber-500 fill-amber-500/80 transition-transform duration-200 hover:scale-110" />
+                    </Link>
+                    <div className="flex items-center">
+                        <ThemeToggle className="h-8 w-8" />
                     </div>
-                    <span className="text-gradient">SmartVyapar</span>
                 </div>
 
                 <div className="relative">
@@ -238,12 +264,12 @@ export function Sidebar() {
                         <Link
                             key={item.href}
                             href={item.href!}
-                                    className={cn(
-                                        "flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative text-sm font-medium",
-                                        isActive
-                                            ? "text-primary bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 shadow-sm"
-                                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:border hover:border-border"
-                                    )}
+                            className={cn(
+                                "flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative text-sm font-medium",
+                                isActive
+                                    ? "text-primary bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 shadow-sm"
+                                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:border hover:border-border"
+                            )}
                         >
                             <item.icon className="h-4 w-4" />
                             <span>{item.label}</span>

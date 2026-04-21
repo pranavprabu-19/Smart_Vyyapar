@@ -66,15 +66,36 @@ export default function CommunicationSettingsPage() {
         <PageShell title="Communication Settings" description="Configure WhatsApp and Email notifications for invoices.">
             <div className="space-y-6">
 
+                <Card className="border-green-500/30 bg-green-500/5">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <MessageSquare className="h-5 w-5 text-green-600" />
+                            Manual WhatsApp (default)
+                        </CardTitle>
+                        <CardDescription>
+                            Invoice Management and Customer “Remind” use your browser: we open WhatsApp with a message,
+                            generate the invoice PDF, and open it in a new tab so you can attach it in the chat.
+                            No Meta API keys are required for this flow.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                        <p>
+                            Set <code className="rounded bg-muted px-1">NEXT_PUBLIC_APP_URL</code> to your public site URL
+                            if PDF links must work outside localhost (optional for local testing).
+                        </p>
+                    </CardContent>
+                </Card>
+
                 {/* WhatsApp Config */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <MessageSquare className="h-5 w-5 text-green-600" />
-                            WhatsApp Business API
+                            <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                            Optional: Meta WhatsApp Cloud API
                         </CardTitle>
                         <CardDescription>
-                            Enter credentials from your Meta Developer Portal to send automated WhatsApp invoices.
+                            Only needed if you later want server-to-WhatsApp sends without opening the browser.
+                            Invoice and reminder buttons use manual WhatsApp unless you integrate a custom flow.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
