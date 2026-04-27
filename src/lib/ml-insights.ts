@@ -172,6 +172,51 @@ export interface PredictPaymentDefaultResponse {
   };
 }
 
+/* ---------- Business Intelligence ---------- */
+
+export interface DailyRevenueRecord {
+  date: string;
+  revenue: number;
+}
+
+export interface CustomerTxRecord {
+  customer_id: string;
+  customer_name: string;
+  last_purchase_date: string | null;
+  total_orders: number;
+  total_revenue: number;
+}
+
+export interface BusinessIntelligenceRequest {
+  daily_revenue: DailyRevenueRecord[];
+  customers: CustomerTxRecord[];
+}
+
+export interface ForecastRecord {
+  date: string;
+  predicted_revenue: number;
+}
+
+export interface RFMSegmentRecord {
+  customer_id: string;
+  customer_name: string;
+  segment: string;
+  recency_days: number;
+  frequency: number;
+  monetary: number;
+}
+
+export interface BusinessIntelligenceResponse {
+  forecast_next_7_days: ForecastRecord[];
+  rfm_segments: RFMSegmentRecord[];
+  segment_summary: {
+    Champions: number;
+    Loyal: number;
+    "At Risk": number;
+    Lost: number;
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Action 1: Category-aware recommendations
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,6 +309,19 @@ export async function predictPaymentDefault({
   return mlFetch<PredictPaymentDefaultResponse>("/customer-risk", {
     customers,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Action 3.5: Business Intelligence
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Get RFM segments and revenue forecasts.
+ */
+export async function predictBusinessIntelligence(
+  payload: BusinessIntelligenceRequest
+): Promise<BusinessIntelligenceResponse> {
+  return mlFetch<BusinessIntelligenceResponse>("/business-intelligence", payload);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

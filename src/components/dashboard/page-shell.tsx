@@ -21,7 +21,7 @@ export function PageShell({ title, description, children, className, action, ico
 
     return (
         <div className={cn("space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500", className)}>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1.5">
                     <div className="flex items-center gap-3">
                         <Link href="/dashboard/admin" className="md:hidden">
@@ -40,7 +40,7 @@ export function PageShell({ title, description, children, className, action, ico
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {action && <div>{action}</div>}
 
                     {/* Role Switcher (Dev Tool) */}

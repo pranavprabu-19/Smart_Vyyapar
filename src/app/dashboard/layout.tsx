@@ -24,7 +24,7 @@ export default function DashboardLayout({
                             <Sidebar />
                             <main className="flex-1 overflow-y-auto bg-muted/10 p-4 md:p-8 pb-24 md:pb-8">
                                 <div className="mx-auto max-w-6xl space-y-4">
-                                    <div className="sticky top-0 z-10 py-2 bg-background/95 backdrop-blur-sm">
+                                    <div className="sticky top-0 z-20 border-b bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                                         <DashboardSearchBar />
                                     </div>
                                     <CommandMenu />

@@ -44,6 +44,7 @@ import {
 import { shareReminderMessageViaWhatsApp } from "@/lib/share-utils";
 import Link from "next/link";
 import { ExportButton } from "@/components/dashboard/export-button";
+import { LoadingBlock, StateBlock } from "@/components/dashboard/state-block";
 
 type OverdueCustomer = {
   customerId: string;
@@ -691,18 +692,13 @@ export default function CollectionsPage() {
       {activeTab === "customers" && (
         <div className="space-y-4">
           {isLoading ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Loading...
-              </CardContent>
-            </Card>
+            <LoadingBlock label="Loading customer dues..." />
           ) : filteredCustomers.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                <p>No overdue payments found!</p>
-              </CardContent>
-            </Card>
+            <StateBlock
+              icon={CheckCircle}
+              title="No overdue payments"
+              description="All customer dues are currently clear."
+            />
           ) : (
             filteredCustomers.map((customer) => (
               <Card key={customer.customerId} className="hover:shadow-md transition-shadow">
@@ -780,18 +776,13 @@ export default function CollectionsPage() {
       {activeTab === "invoices" && (
         <div className="space-y-4">
           {isLoading ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                Loading...
-              </CardContent>
-            </Card>
+            <LoadingBlock label="Loading pending invoices..." />
           ) : filteredInvoices.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                <p>No pending invoices found!</p>
-              </CardContent>
-            </Card>
+            <StateBlock
+              icon={CheckCircle}
+              title="No pending invoices"
+              description="Every invoice in this view is already settled."
+            />
           ) : (
             filteredInvoices.map((invoice) => (
               <Card key={invoice.id} className="hover:shadow-md transition-shadow">
@@ -867,14 +858,15 @@ export default function CollectionsPage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  Loading transactions...
+                <div className="py-4">
+                  <LoadingBlock label="Loading transaction history..." />
                 </div>
               ) : invoices.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No transactions found</p>
-                </div>
+                <StateBlock
+                  icon={History}
+                  title="No transactions found"
+                  description="Transactions will appear here after invoices are created."
+                />
               ) : (
                 <div className="space-y-3">
                   {/* Show all invoices as transactions */}

@@ -7,6 +7,8 @@ import { LiquidationWidget } from "@/components/dashboard/ml/liquidation-widget"
 import { AutomationRunner } from "@/components/dashboard/ml/automation-runner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrainCircuit, AlertTriangle, RefreshCw, BarChart2, TrendingDown, Users, ShieldAlert } from "lucide-react";
+import { getBusinessIntelligenceAction } from "@/actions/business-intelligence";
+import { BusinessIntelligenceWidget } from "@/components/dashboard/ml/business-intelligence-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,8 @@ export default async function MLInsightsPage() {
 
     const mlResponse = await predictStockoutAction(company);
     const riskResponse = await predictCustomerRiskAction(company);
+    const biResponse = await getBusinessIntelligenceAction(company);
+    
     const predictions = mlResponse.predictions || [];
     const riskSummary = riskResponse.summary || {
         tier_a: 0,
@@ -152,6 +156,24 @@ export default async function MLInsightsPage() {
                     <InventoryPredictionsTable predictions={predictions} />
                 </div>
             </div>
+            
+            {/* New Business Intelligence Analysis */}
+            <div className="mt-8">
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <BarChart2 className="h-5 w-5 text-indigo-500" />
+                    Business Analytics & Growth
+                </h3>
+                {biResponse.success && biResponse.data ? (
+                    <BusinessIntelligenceWidget data={biResponse.data} />
+                ) : (
+                    <Card>
+                        <CardContent className="p-6 text-center text-muted-foreground">
+                            Failed to load Business Intelligence data or not enough historical data.
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+            
             <LiquidationWidget predictions={predictions} />
         </div>
     );

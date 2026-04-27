@@ -51,6 +51,7 @@ import { getCustomersAction } from "@/actions/customer";
 import { getProductsAction } from "@/actions/inventory";
 import { toast } from "sonner";
 import Link from "next/link";
+import { LoadingBlock, StateBlock } from "@/components/dashboard/state-block";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   DRAFT: { label: "Draft", color: "bg-gray-100 text-gray-700", icon: FileText },
@@ -360,15 +361,18 @@ export default function OrdersPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading orders...</div>
+            <LoadingBlock label="Loading orders..." />
           ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No orders found</p>
-              <Button className="mt-4" onClick={() => { setShowCreateModal(true); loadFormData(); }}>
-                <Plus className="h-4 w-4 mr-2" /> Create First Order
-              </Button>
-            </div>
+            <StateBlock
+              icon={ShoppingCart}
+              title="No orders found"
+              description="Create your first order to start the approval workflow."
+              actionLabel="Create First Order"
+              onAction={() => {
+                setShowCreateModal(true);
+                loadFormData();
+              }}
+            />
           ) : (
             <div className="space-y-4">
               {filteredOrders.map((order) => {

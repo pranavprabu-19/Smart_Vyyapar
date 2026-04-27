@@ -23,6 +23,7 @@ import {
 } from "@/actions/assets";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+import { StateBlock } from "@/components/dashboard/state-block";
 
 interface Asset {
     id: string;
@@ -173,11 +174,11 @@ export default function AssetsPage() {
                 description="Access restricted to administrators"
                 icon={<Package className="h-6 w-6" />}
             >
-                <Card>
-                    <CardContent className="p-12 text-center">
-                        <p className="text-muted-foreground">You need administrator privileges to access this page.</p>
-                    </CardContent>
-                </Card>
+                <StateBlock
+                    icon={Package}
+                    title="Administrator access required"
+                    description="Switch to an admin account to manage assets."
+                />
             </PageShell>
         );
     }
@@ -255,8 +256,12 @@ export default function AssetsPage() {
                             ))}
                         </div>
                     ) : assets.length === 0 ? (
-                        <div className="p-12 text-center text-muted-foreground">
-                            No assets found. Click "Add Asset" to get started.
+                        <div className="p-6">
+                            <StateBlock
+                                icon={Package}
+                                title="No assets found"
+                                description='Click "Add Asset" to start tracking fixed assets.'
+                            />
                         </div>
                     ) : (
                         <div className="overflow-x-auto">

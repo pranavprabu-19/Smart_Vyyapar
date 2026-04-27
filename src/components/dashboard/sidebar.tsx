@@ -123,11 +123,21 @@ export function Sidebar() {
     useEffect(() => {
         getCompaniesAction().then(res => {
             if (res.success && res.companies) {
-                const dbNames = res.companies.map((c: any) => c.name);
+                const dbNames = res.companies.map((c: { name: string }) => c.name);
                 setAvailableCompanies(prev => Array.from(new Set([...prev, ...dbNames])));
             }
         });
     }, []);
+
+    useEffect(() => {
+        const activeParent = sidebarItems.find(
+            (item) => item.subItems?.some((subItem) => pathname === subItem.href)
+        );
+
+        if (activeParent) {
+            setOpenMenus((prev) => ({ ...prev, [activeParent.label]: true }));
+        }
+    }, [pathname]);
 
     if (!user || !user.role) return null;
 
@@ -167,7 +177,7 @@ export function Sidebar() {
                     <select
                         className="w-full p-2 text-sm border rounded-md bg-background font-medium appearance-none cursor-pointer hover:bg-muted/50 transition-colors focus:ring-2 focus:ring-primary/20 outline-none"
                         value={currentCompany}
-                        onChange={(e) => setCompany(e.target.value as any)}
+                        onChange={(e) => setCompany(e.target.value)}
                     >
                         {availableCompanies.map(company => (
                             <option key={company} value={company}>{company}</option>

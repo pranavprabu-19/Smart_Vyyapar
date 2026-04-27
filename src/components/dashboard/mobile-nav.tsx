@@ -36,7 +36,7 @@ export function MobileNav() {
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t md:hidden pb-safe">
             <div className="flex items-center justify-around h-16">
                 {filteredItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                     return (
                         <Link
                             key={item.href}
@@ -66,7 +66,8 @@ export function MobileNav() {
                 <Link
                     href="/dashboard/settings/profile"
                     className={cn(
-                        "flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground hover:text-foreground"
+                        "flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground hover:text-foreground",
+                        pathname.startsWith("/dashboard/settings") && "text-primary"
                     )}
                 >
                     <Menu className="h-5 w-5" />
