@@ -1,6 +1,7 @@
 "use client";
 
 
+import { useEffect, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "../ui/avatar";
@@ -13,6 +14,11 @@ interface OverviewChartsProps {
 export function OverviewCharts({ graphData, recentSales }: OverviewChartsProps) {
     const hasData = graphData && graphData.length > 0;
     const hasSales = recentSales && recentSales.length > 0;
+    const [chartsReady, setChartsReady] = useState(false);
+
+    useEffect(() => {
+        setChartsReady(true);
+    }, []);
 
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -22,7 +28,7 @@ export function OverviewCharts({ graphData, recentSales }: OverviewChartsProps) 
                     <CardDescription>Daily sales performance for the current week.</CardDescription>
                 </CardHeader>
                 <CardContent className="pl-2">
-                    {hasData ? (
+                    {hasData && chartsReady ? (
                         <ResponsiveContainer width="100%" height={350}>
                             <BarChart data={graphData}>
                                 <defs>
@@ -66,8 +72,10 @@ export function OverviewCharts({ graphData, recentSales }: OverviewChartsProps) 
                     ) : (
                         <div className="h-[350px] flex items-center justify-center text-muted-foreground">
                             <div className="text-center">
-                                <p className="text-sm">No revenue data available</p>
-                                <p className="text-xs mt-1">Data will appear here as sales are recorded</p>
+                                <p className="text-sm">{hasData ? "Loading chart..." : "No revenue data available"}</p>
+                                <p className="text-xs mt-1">
+                                    {hasData ? "Preparing visualization" : "Data will appear here as sales are recorded"}
+                                </p>
                             </div>
                         </div>
                     )}

@@ -28,6 +28,7 @@ export default function AnalyticsPage() {
     const { currentCompany } = useCompany();
 
     // 4. Enhanced Transactions & Trends (Client-Side Only to avoid Hydration Error)
+    const [chartsReady, setChartsReady] = useState(false);
     const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
     const [salesTrend, setSalesTrend] = useState<any[]>([]);
     const [productMix, setProductMix] = useState<{ name: string, value: number }[]>([]);
@@ -36,6 +37,10 @@ export default function AnalyticsPage() {
     // Real Data States
     const [invoicesList, setInvoicesList] = useState<any[]>([]);
     const [topDebtors, setTopDebtors] = useState<any[]>([]);
+
+    useEffect(() => {
+        setChartsReady(true);
+    }, []);
 
     useEffect(() => {
         const loadData = async () => {
@@ -459,25 +464,29 @@ export default function AnalyticsPage() {
                         <CardDescription>Daily revenue performance for the past 7 days.</CardDescription>
                     </CardHeader>
                     <CardContent className="pl-2">
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={salesTrend}>
-                                    <defs>
-                                        <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                                        formatter={(value: number) => [`₹${value}`, 'Sales']}
-                                    />
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
-                                    <Area type="monotone" dataKey="sales" stroke="#8884d8" fillOpacity={1} fill="url(#colorSales)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                        <div className="h-[300px] min-w-0">
+                            {chartsReady ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={salesTrend}>
+                                        <defs>
+                                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                                            formatter={(value: number) => [`₹${value}`, 'Sales']}
+                                        />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+                                        <Area type="monotone" dataKey="sales" stroke="#8884d8" fillOpacity={1} fill="url(#colorSales)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">Loading chart...</div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -489,18 +498,22 @@ export default function AnalyticsPage() {
                         <CardDescription>Customers with highest pending payments.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={topDebtors} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} />
-                                    <Tooltip
-                                        cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                                    />
-                                    <Bar dataKey="balance" fill="hsl(var(--chart-2))" radius={[0, 8, 8, 0]} barSize={20} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <div className="h-[300px] min-w-0">
+                            {chartsReady ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={topDebtors} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} />
+                                        <Tooltip
+                                            cursor={{ fill: 'transparent' }}
+                                            contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                                        />
+                                        <Bar dataKey="balance" fill="hsl(var(--chart-2))" radius={[0, 8, 8, 0]} barSize={20} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">Loading chart...</div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -566,27 +579,31 @@ export default function AnalyticsPage() {
                         <CardDescription>Sales volume by product category.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[350px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={productMix.length > 0 ? productMix : [{ name: 'No Data', value: 1 }]}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={110}
-                                        fill="#8884d8"
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {(productMix.length > 0 ? productMix : [{ name: 'No Data', value: 1 }]).map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend verticalAlign="middle" align="right" layout="vertical" />
-                                </PieChart>
-                            </ResponsiveContainer>
+                        <div className="h-[350px] min-w-0">
+                            {chartsReady ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={productMix.length > 0 ? productMix : [{ name: 'No Data', value: 1 }]}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={80}
+                                            outerRadius={110}
+                                            fill="#8884d8"
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {(productMix.length > 0 ? productMix : [{ name: 'No Data', value: 1 }]).map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                        <Legend verticalAlign="middle" align="right" layout="vertical" />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">Loading chart...</div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

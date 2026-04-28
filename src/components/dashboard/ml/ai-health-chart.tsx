@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StockPrediction } from "@/actions/stock-prediction";
@@ -9,6 +10,12 @@ interface AIHealthChartProps {
 }
 
 export function AIHealthChart({ predictions }: AIHealthChartProps) {
+    const [chartsReady, setChartsReady] = useState(false);
+
+    useEffect(() => {
+        setChartsReady(true);
+    }, []);
+
     const summary = { SAFE: 0, LOW: 0, CRITICAL: 0 };
     predictions.forEach(p => summary[p.status]++);
 
@@ -28,6 +35,10 @@ export function AIHealthChart({ predictions }: AIHealthChartProps) {
                 {predictions.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                         No AI predictions available
+                    </div>
+                ) : !chartsReady ? (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                        Loading chart...
                     </div>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%">

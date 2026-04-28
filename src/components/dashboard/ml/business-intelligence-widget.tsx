@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Target, Activity } from "lucide-react";
 import { BusinessIntelligenceResponse } from "@/lib/ml-insights";
@@ -7,6 +8,11 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "rec
 
 export function BusinessIntelligenceWidget({ data }: { data?: BusinessIntelligenceResponse }) {
     if (!data) return null;
+    const [chartsReady, setChartsReady] = useState(false);
+
+    useEffect(() => {
+        setChartsReady(true);
+    }, []);
 
     const { forecast_next_7_days, segment_summary } = data;
     const totalPredictedRevenue = forecast_next_7_days.reduce((acc, r) => acc + r.predicted_revenue, 0);
@@ -23,23 +29,29 @@ export function BusinessIntelligenceWidget({ data }: { data?: BusinessIntelligen
                         ₹ {totalPredictedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                     <div className="h-[120px] mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={forecast_next_7_days}>
-                                <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
-                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="date" hide />
-                                <YAxis hide />
-                                <Tooltip 
-                                    formatter={(value: number) => [`₹ ${value.toFixed(2)}`, "Predicted"]}
-                                    labelFormatter={(label) => `Date: ${label}`}
-                                />
-                                <Area type="monotone" dataKey="predicted_revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorRevenue)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        {chartsReady ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={forecast_next_7_days}>
+                                    <defs>
+                                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis dataKey="date" hide />
+                                    <YAxis hide />
+                                    <Tooltip 
+                                        formatter={(value: number) => [`₹ ${value.toFixed(2)}`, "Predicted"]}
+                                        labelFormatter={(label) => `Date: ${label}`}
+                                    />
+                                    <Area type="monotone" dataKey="predicted_revenue" stroke="#6366f1" fillOpacity={1} fill="url(#colorRevenue)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                                Loading chart...
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>
