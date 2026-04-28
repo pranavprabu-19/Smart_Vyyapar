@@ -1,13 +1,24 @@
 import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as typeof globalThis & {
+    prisma?: PrismaClient;
+};
 
-console.log("--------------- DB INIT (Refreshed) ----------------");
+const shouldLogDbInit =
+    process.env.NODE_ENV !== 'production' || process.env.DEBUG_DB_INIT === 'true';
 
-// Prisma Client instance
-// Force new client to pick up schema changes
-export const prisma = new PrismaClient({
-    log: ['warn', 'error'],
-});
+function createPrismaClient(): PrismaClient {
+    if (shouldLogDbInit) {
+        console.log("--------------- DB INIT (Refreshed) ----------------");
+    }
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+    return new PrismaClient({
+        log: ['warn', 'error'],
+    });
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = prisma;
+}
