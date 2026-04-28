@@ -371,7 +371,53 @@ export default function CollectionsPage() {
   };
 
   // Filter logic
-  const filteredCustomers = overdueCustomers.filter((c) => {
+  const customerOutstandingRows = useMemo<OverdueCustomer[]>(() => {
+    const grouped = new Map<string, OverdueCustomer>();
+
+    // Seed with overdue metadata (tier/block flags) when available.
+    for (const customer of overdueCustomers) {
+      grouped.set(customer.customerId, { ...customer });
+    }
+
+    // Build "By Customer" view from all pending invoices, not only overdue ones.
+    for (const inv of invoices) {
+      const existing = grouped.get(inv.customerId);
+      const balance = Number(inv.balance || 0);
+      if (balance <= 0) continue;
+
+      if (existing) {
+        existing.totalOutstanding += balance;
+        existing.invoiceCount += 1;
+        if (new Date(inv.dueDate) < new Date(existing.oldestDueDate)) {
+          existing.oldestDueDate = new Date(inv.dueDate);
+        }
+        if (inv.daysPastDue > existing.maxDaysPastDue) {
+          existing.maxDaysPastDue = inv.daysPastDue;
+        }
+      } else {
+        grouped.set(inv.customerId, {
+          customerId: inv.customerId,
+          customerName: inv.customerName,
+          phone: inv.customerPhone || null,
+          totalOutstanding: balance,
+          invoiceCount: 1,
+          oldestDueDate: new Date(inv.dueDate),
+          maxDaysPastDue: inv.daysPastDue,
+          tier: "C",
+          isBlocked: false,
+        });
+      }
+    }
+
+    return Array.from(grouped.values())
+      .filter((c) => c.totalOutstanding > 0)
+      .sort((a, b) => {
+        if (b.maxDaysPastDue !== a.maxDaysPastDue) return b.maxDaysPastDue - a.maxDaysPastDue;
+        return b.totalOutstanding - a.totalOutstanding;
+      });
+  }, [overdueCustomers, invoices]);
+
+  const filteredCustomers = customerOutstandingRows.filter((c) => {
     const matchesSearch =
       c.customerName.toLowerCase().includes(search.toLowerCase()) ||
       c.phone?.includes(search);
@@ -696,8 +742,12 @@ export default function CollectionsPage() {
           ) : filteredCustomers.length === 0 ? (
             <StateBlock
               icon={CheckCircle}
-              title="No overdue payments"
-              description="All customer dues are currently clear."
+              title={filterDays ? "No customers match this overdue filter" : "No outstanding customers"}
+              description={
+                filterDays
+                  ? "No customer currently has dues in this overdue range."
+                  : "All customer dues are currently clear."
+              }
             />
           ) : (
             filteredCustomers.map((customer) => (

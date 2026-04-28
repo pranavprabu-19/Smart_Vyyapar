@@ -79,7 +79,12 @@ export default function AnalyticsProPage() {
   const salesByDay = data?.salesByDay || [];
   const topProducts = data?.topProducts || [];
   const topCustomers = data?.topCustomers || [];
-  const maxSales = Math.max(1, ...salesByDay.map(d => d.value));
+  const maxSales = Math.max(
+    1,
+    ...salesByDay.map((d) => (Number.isFinite(d.value) && d.value > 0 ? d.value : 0))
+  );
+  const totalSales = salesByDay.reduce((sum, d) => sum + (Number.isFinite(d.value) ? d.value : 0), 0);
+  const hasPositiveSales = salesByDay.some((d) => Number.isFinite(d.value) && d.value > 0);
   const hasData = !!data?.success;
 
   const handleExportCsv = () => {
@@ -324,17 +329,23 @@ export default function AnalyticsProPage() {
                 <div className="flex items-end justify-between h-40 gap-2">
                   {salesByDay.map((day: { day: string; value: number }) => (
                     <div key={day.day} className="flex-1 flex flex-col items-center gap-2">
-                      <div
-                        className="w-full bg-blue-500 rounded-t transition-all hover:bg-blue-600"
-                        style={{ height: `${(day.value / maxSales) * 100}%` }}
-                        title={formatCurrency(day.value)}
-                      />
+                      <div className="relative h-full w-full min-h-[12px] overflow-hidden rounded-md bg-muted/30">
+                        <div
+                          className="absolute inset-x-0 bottom-0 rounded-t-md bg-blue-500 transition-all hover:bg-blue-600"
+                          style={{
+                            height: hasPositiveSales
+                              ? `${Math.max(8, Math.min(100, (Math.max(0, day.value) / maxSales) * 100))}%`
+                              : "0%",
+                          }}
+                          title={formatCurrency(day.value)}
+                        />
+                      </div>
                       <span className="text-xs text-muted-foreground">{day.day}</span>
                     </div>
                   ))}
                 </div>
                 <div className="text-center mt-4 text-sm text-muted-foreground">
-                  Total: {formatCurrency(salesByDay.reduce((sum, d) => sum + d.value, 0))}
+                  Total: {formatCurrency(totalSales)}
                 </div>
               </>
             )}

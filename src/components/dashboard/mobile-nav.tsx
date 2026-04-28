@@ -29,8 +29,11 @@ export function MobileNav() {
         { href: "/dashboard/photos", label: "Photos", icon: Camera, roles: ["ADMIN", "DRIVER", "FIELD_WORKER"] },
     ];
 
-    // Filter items based on role
-    const filteredItems = navItems.filter(item => !item.roles || item.roles.includes(user.role || "ADMIN"));
+    // Filter items by role, then de-duplicate by href so role-specific home links
+    // (e.g. DRIVER -> /dashboard/trips) don't clash with explicit nav entries.
+    const filteredItems = navItems
+        .filter(item => !item.roles || item.roles.includes(user.role || "ADMIN"))
+        .filter((item, index, items) => items.findIndex((candidate) => candidate.href === item.href) === index);
 
     return (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t md:hidden pb-safe">
