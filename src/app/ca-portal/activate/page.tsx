@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { activateCAInviteAction } from "@/actions/ca-access";
 import { toast } from "sonner";
 
-export default function ActivateCAPortalPage() {
+function ActivateCAPortalPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const token = searchParams.get("token") || "";
@@ -76,5 +76,13 @@ export default function ActivateCAPortalPage() {
                 </CardContent>
             </Card>
         </main>
+    );
+}
+
+export default function ActivateCAPortalPage() {
+    return (
+        <Suspense fallback={<main className="min-h-screen grid place-items-center p-6 bg-muted/10" />}>
+            <ActivateCAPortalPageContent />
+        </Suspense>
     );
 }
