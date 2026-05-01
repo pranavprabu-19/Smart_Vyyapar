@@ -57,7 +57,7 @@ const schemeTypeConfig: Record<string, { label: string; color: string; icon: any
 export default function SchemesPage() {
   const { currentCompany } = useCompany();
   const [schemes, setSchemes] = useState<any[]>([]);
-  const [metrics, setMetrics] = useState({
+  const [metrics, setMetrics] = useState<any>({
     totalSchemes: 0,
     activeSchemes: 0,
     totalDiscountGiven: 0,

@@ -65,8 +65,8 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 export default function OrdersPage() {
   const { currentCompany } = useCompany();
   const { user } = useAuth();
-  const [orders, setOrders] = useState<OrderWithDetails[]>([]);
-  const [metrics, setMetrics] = useState({ totalOrders: 0, pendingApproval: 0, approved: 0, delivered: 0, monthlyValue: 0 });
+  const [orders, setOrders] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState<any>({ totalOrders: 0, pendingApproval: 0, approved: 0, delivered: 0, monthlyValue: 0 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -85,7 +85,7 @@ export default function OrdersPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Order Detail Modal
-  const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -607,7 +607,7 @@ export default function OrdersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedOrder.items.map((item) => (
+                    {selectedOrder.items.map((item: any) => (
                       <tr key={item.id} className="border-t">
                         <td className="p-2">{item.product.name}</td>
                         <td className="p-2 text-right">{item.quantity}</td>

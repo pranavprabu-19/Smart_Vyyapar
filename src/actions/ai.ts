@@ -169,11 +169,11 @@ export async function processQuery(query: string, companyName: string): Promise<
             let totalCost = 0;
 
             invoices.forEach(inv => {
-                totalRevenue += inv.totalAmount;
+                totalRevenue += Number(inv.totalAmount);
                 inv.items.forEach(item => {
                     const product = productMap.get(item.productId);
                     // Use product cost price if available, else 70% of sales price as heuristic
-                    const costPrice = product?.costPrice || (item.price * 0.7);
+                    const costPrice = Number(product?.costPrice || (Number(item.price) * 0.7));
                     totalCost += costPrice * item.quantity;
                 });
             });
@@ -213,10 +213,10 @@ export async function processQuery(query: string, companyName: string): Promise<
             let totalIGST = 0;
 
             invoices.forEach(inv => {
-                const taxable = inv.totalAmount / 1.18; // Assuming 18% GST
+                const taxable = Number(inv.totalAmount) / 1.18; // Assuming 18% GST
                 totalTaxableAmount += taxable;
                 // For simplicity, split evenly between CGST/SGST (intra-state)
-                const gst = inv.totalAmount - taxable;
+                const gst = Number(inv.totalAmount) - taxable;
                 totalCGST += gst / 2;
                 totalSGST += gst / 2;
             });
@@ -268,7 +268,7 @@ export async function processQuery(query: string, companyName: string): Promise<
             const results = topProducts.map(p => {
                 const product = productMap[p.productId];
                 const qty = p._sum.quantity || 0;
-                const revenue = product ? (product.price * qty) : 0;
+                const revenue = product ? (Number(product.price) * qty) : 0;
 
                 return {
                     name: product?.name || 'Unknown',
@@ -323,8 +323,8 @@ export async function processQuery(query: string, companyName: string): Promise<
                 return {
                     name: customer?.name || 'Unknown',
                     orders: c._count.id || 0,
-                    revenue: c._sum.totalAmount || 0,
-                    outstanding: customer?.balance || 0
+                    revenue: Number(c._sum.totalAmount || 0),
+                    outstanding: Number(customer?.balance || 0)
                 };
             }).filter((r): r is NonNullable<typeof r> => r !== null);
 
@@ -356,8 +356,8 @@ export async function processQuery(query: string, companyName: string): Promise<
                 })
             ]);
 
-            const current = currentSales._sum.totalAmount || 0;
-            const previous = previousSales._sum.totalAmount || 0;
+            const current = Number(currentSales._sum.totalAmount || 0);
+            const previous = Number(previousSales._sum.totalAmount || 0);
             const growth = previous > 0 ? (((current - previous) / previous) * 100).toFixed(1) : 0;
             const isGrowth = Number(growth) >= 0;
 
@@ -393,9 +393,9 @@ export async function processQuery(query: string, companyName: string): Promise<
                 })
             ]);
 
-            const sales = totalSales._sum.totalAmount || 0;
-            const collected = totalCollected._sum.amount || 0;
-            const outstanding = totalOutstanding._sum.balance || 0;
+            const sales = Number(totalSales._sum.totalAmount || 0);
+            const collected = Number(totalCollected._sum.amount || 0);
+            const outstanding = Number(totalOutstanding._sum.balance || 0);
             const collectionRate = sales > 0 ? ((collected / sales) * 100).toFixed(1) : 100;
 
             return {
@@ -433,7 +433,7 @@ export async function processQuery(query: string, companyName: string): Promise<
                 )
             );
 
-            const values = salesData.map(s => s._sum.totalAmount || 0);
+            const values = salesData.map(s => Number(s._sum.totalAmount || 0));
             const avg = values.reduce((a, b) => a + b, 0) / values.length;
             const trend = values.length >= 2 ? (values[values.length - 1] - values[0]) / values.length : 0;
             const forecast = Math.max(0, avg + trend);
@@ -475,8 +475,8 @@ export async function processQuery(query: string, companyName: string): Promise<
                 })
             ]);
 
-            const revenue = sales._sum.totalAmount || 0;
-            const debt = outstanding._sum.balance || 0;
+            const revenue = Number(sales._sum.totalAmount || 0);
+            const debt = Number(outstanding._sum.balance || 0);
             const debtRatio = revenue > 0 ? (debt / revenue) * 100 : 0;
 
             // Calculate health score (0-100)
@@ -524,7 +524,7 @@ export async function processQuery(query: string, companyName: string): Promise<
                 }
             });
 
-            const total = result._sum.totalAmount || 0;
+            const total = Number(result._sum.totalAmount || 0);
             const count = result._count.id || 0;
             const avgOrder = count > 0 ? total / count : 0;
 
@@ -628,7 +628,7 @@ export async function processQuery(query: string, companyName: string): Promise<
                 };
             }
 
-            const list = debtors.map(c => `${c.name}: ₹${c.balance}`).join("\n");
+            const list = debtors.map(c => `${c.name}: ₹${Number(c.balance)}`).join("\n");
             return {
                 text: `Here are the top customers with pending payments:\n${list}`,
                 data: debtors,
@@ -713,7 +713,7 @@ export async function processQuery(query: string, companyName: string): Promise<
                 });
 
                 return {
-                    text: `(AI) Total sales for ${period}: ₹${(result._sum.totalAmount || 0).toLocaleString()} (${result._count.id} orders).`,
+                    text: `(AI) Total sales for ${period}: ₹${Number(result._sum.totalAmount || 0).toLocaleString()} (${result._count.id} orders).`,
                     data: result,
                     type: 'metric',
                     intent: 'SALES_METRIC'
@@ -743,7 +743,7 @@ export async function processQuery(query: string, companyName: string): Promise<
                     take: 5, orderBy: { balance: 'desc' }
                 });
                 if (debtors.length === 0) return { text: "No pending payments found.", type: 'text', intent: 'CUSTOMER_DEBT' };
-                const list = debtors.map(c => `${c.name}: ₹${c.balance}`).join("\n");
+                const list = debtors.map(c => `${c.name}: ₹${Number(c.balance)}`).join("\n");
                 return {
                     text: `(AI) Top pending payments:\n${list}`,
                     data: debtors,

@@ -42,25 +42,40 @@ export interface SaveEWaySettingsInput {
 
 export async function getEWaySettingsAction(companyName: string) {
   try {
-    const companies = await prisma.$queryRaw<Array<any>>`
-      SELECT
-        id, name, ewayProvider, ewayEnvironment, ewayEnabled,
-        ewayClientId, ewayClientSecret, ewayUsername, ewayPassword, ewayGstin,
-        ewayCredentialUpdatedAt, ewayLastTestedAt, ewayLastTestStatus, ewayLastTestMessage
-      FROM Company
-      WHERE name = ${companyName}
-      LIMIT 1
-    `;
-    const company = companies[0];
+    const company = await prisma.company.findUnique({
+      where: { name: companyName },
+      select: {
+        id: true,
+        name: true,
+        ewayProvider: true,
+        ewayEnvironment: true,
+        ewayEnabled: true,
+        ewayClientId: true,
+        ewayClientSecret: true,
+        ewayUsername: true,
+        ewayPassword: true,
+        ewayGstin: true,
+        ewayCredentialUpdatedAt: true,
+        ewayLastTestedAt: true,
+        ewayLastTestStatus: true,
+        ewayLastTestMessage: true,
+      },
+    });
     if (!company) return { success: false, error: "Company not found" };
 
-    const logs = await prisma.$queryRaw<Array<any>>`
-      SELECT id, action, status, message, provider, createdAt
-      FROM EWayAuditLog
-      WHERE companyId = ${company.id}
-      ORDER BY createdAt DESC
-      LIMIT 8
-    `;
+    const logs = await prisma.eWayAuditLog.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        action: true,
+        status: true,
+        message: true,
+        provider: true,
+        createdAt: true,
+      },
+    });
 
     return {
       success: true,
@@ -79,13 +94,10 @@ export async function getEWaySettingsAction(companyName: string) {
 
 export async function saveEWaySettingsAction(companyName: string, input: SaveEWaySettingsInput) {
   try {
-    const companies = await prisma.$queryRaw<Array<any>>`
-      SELECT id, ewayClientSecret, ewayPassword
-      FROM Company
-      WHERE name = ${companyName}
-      LIMIT 1
-    `;
-    const company = companies[0];
+    const company = await prisma.company.findUnique({
+      where: { name: companyName },
+      select: { id: true, ewayClientSecret: true, ewayPassword: true },
+    });
     if (!company) return { success: false, error: "Company not found" };
 
     const resolvedInput: SaveEWaySettingsInput = {
@@ -99,33 +111,30 @@ export async function saveEWaySettingsAction(companyName: string, input: SaveEWa
       return { success: false, error: validationErrors.join(" ") };
     }
 
-    await prisma.$executeRaw`
-      UPDATE Company
-      SET
-        ewayProvider = ${resolvedInput.provider},
-        ewayEnvironment = ${resolvedInput.environment},
-        ewayEnabled = ${resolvedInput.enabled ? 1 : 0},
-        ewayClientId = ${resolvedInput.clientId.trim()},
-        ewayClientSecret = ${resolvedInput.clientSecret.trim()},
-        ewayUsername = ${resolvedInput.username.trim()},
-        ewayPassword = ${resolvedInput.password.trim()},
-        ewayGstin = ${resolvedInput.gstin.trim().toUpperCase()},
-        ewayCredentialUpdatedAt = ${new Date().toISOString()}
-      WHERE name = ${companyName}
-    `;
+    await prisma.company.update({
+      where: { id: company.id },
+      data: {
+        ewayProvider: resolvedInput.provider,
+        ewayEnvironment: resolvedInput.environment,
+        ewayEnabled: resolvedInput.enabled,
+        ewayClientId: resolvedInput.clientId.trim(),
+        ewayClientSecret: resolvedInput.clientSecret.trim(),
+        ewayUsername: resolvedInput.username.trim(),
+        ewayPassword: resolvedInput.password.trim(),
+        ewayGstin: resolvedInput.gstin.trim().toUpperCase(),
+        ewayCredentialUpdatedAt: new Date(),
+      },
+    });
 
-    await prisma.$executeRaw`
-      INSERT INTO EWayAuditLog (id, companyId, action, status, message, provider, createdAt)
-      VALUES (
-        ${`ewaylog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`},
-        ${company.id},
-        ${"CREDENTIALS_UPDATED"},
-        ${"SUCCESS"},
-        ${`E-Way credentials updated for ${resolvedInput.provider}`},
-        ${resolvedInput.provider},
-        ${new Date().toISOString()}
-      )
-    `;
+    await prisma.eWayAuditLog.create({
+      data: {
+        companyId: company.id,
+        action: "CREDENTIALS_UPDATED",
+        status: "SUCCESS",
+        message: `E-Way credentials updated for ${resolvedInput.provider}`,
+        provider: resolvedInput.provider,
+      },
+    });
 
     revalidatePath("/dashboard/settings/eway");
     return { success: true };
@@ -137,14 +146,19 @@ export async function saveEWaySettingsAction(companyName: string, input: SaveEWa
 
 export async function testEWayConnectionAction(companyName: string) {
   try {
-    const companies = await prisma.$queryRaw<Array<any>>`
-      SELECT
-        id, ewayProvider, ewayEnvironment, ewayClientId, ewayClientSecret, ewayUsername, ewayPassword, ewayGstin
-      FROM Company
-      WHERE name = ${companyName}
-      LIMIT 1
-    `;
-    const company = companies[0];
+    const company = await prisma.company.findUnique({
+      where: { name: companyName },
+      select: {
+        id: true,
+        ewayProvider: true,
+        ewayEnvironment: true,
+        ewayClientId: true,
+        ewayClientSecret: true,
+        ewayUsername: true,
+        ewayPassword: true,
+        ewayGstin: true,
+      },
+    });
     if (!company) return { success: false, error: "Company not found" };
     if (company.ewayProvider && company.ewayProvider !== PROVIDER) {
       return { success: false, error: "Only ClearTax provider is supported." };
@@ -177,28 +191,25 @@ export async function testEWayConnectionAction(companyName: string) {
     const result = await provider.testConnection(credentials);
     const status: EWayStatus = result.success ? "SUCCESS" : "FAILED";
 
-    await prisma.$executeRaw`
-      UPDATE Company
-      SET
-        ewayLastTestedAt = ${new Date().toISOString()},
-        ewayLastTestStatus = ${status},
-        ewayLastTestMessage = ${result.message},
-        ewayProvider = ${PROVIDER}
-      WHERE name = ${companyName}
-    `;
+    await prisma.company.update({
+      where: { id: company.id },
+      data: {
+        ewayLastTestedAt: new Date(),
+        ewayLastTestStatus: status,
+        ewayLastTestMessage: result.message,
+        ewayProvider: PROVIDER,
+      },
+    });
 
-    await prisma.$executeRaw`
-      INSERT INTO EWayAuditLog (id, companyId, action, status, message, provider, createdAt)
-      VALUES (
-        ${`ewaylog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`},
-        ${company.id},
-        ${"TEST_CONNECTION"},
-        ${status},
-        ${result.message},
-        ${PROVIDER},
-        ${new Date().toISOString()}
-      )
-    `;
+    await prisma.eWayAuditLog.create({
+      data: {
+        companyId: company.id,
+        action: "TEST_CONNECTION",
+        status,
+        message: result.message,
+        provider: PROVIDER,
+      },
+    });
 
     revalidatePath("/dashboard/settings/eway");
     return { success: result.success, message: result.message };
@@ -222,21 +233,27 @@ function resolveStateCode(gstin?: string | null): string | undefined {
 
 export async function generateEWayBillAction(input: GenerateEWayBillInput) {
   try {
-    const companyRows = await prisma.$queryRaw<Array<any>>`
-      SELECT
-        id, name, gstin,
-        ewayProvider, ewayEnvironment, ewayEnabled,
-        ewayClientId, ewayClientSecret, ewayUsername, ewayPassword, ewayGstin
-      FROM Company
-      WHERE name = ${input.companyName}
-      LIMIT 1
-    `;
-    const company = companyRows[0];
+    const company = await prisma.company.findUnique({
+      where: { name: input.companyName },
+      select: {
+        id: true,
+        name: true,
+        gstin: true,
+        ewayProvider: true,
+        ewayEnvironment: true,
+        ewayEnabled: true,
+        ewayClientId: true,
+        ewayClientSecret: true,
+        ewayUsername: true,
+        ewayPassword: true,
+        ewayGstin: true,
+      },
+    });
     if (!company) return { success: false, error: "Company not found." };
     if (!company.ewayEnabled) return { success: false, error: "E-Way integration is disabled for this company." };
 
-    const invoice = await prisma.invoice.findUnique({
-      where: { invoiceNo: input.invoiceNo },
+    const invoice = await prisma.invoice.findFirst({
+      where: { companyId: company.id, invoiceNo: input.invoiceNo },
       include: {
         items: true,
         customer: true,
@@ -268,7 +285,10 @@ export async function generateEWayBillAction(input: GenerateEWayBillInput) {
       return { success: false, error: validationErrors.join(" ") };
     }
 
-    const taxableValue = invoice.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const taxableValue = invoice.items.reduce(
+      (sum, item) => sum + Number(item.price) * item.quantity,
+      0
+    );
     const payload: EWayInvoicePayload = {
       documentNumber: invoice.invoiceNo,
       documentDate: new Date(invoice.date).toISOString().split("T")[0],
@@ -278,16 +298,19 @@ export async function generateEWayBillAction(input: GenerateEWayBillInput) {
       buyerName: invoice.customerName,
       buyerAddress: invoice.billingAddress || invoice.customer?.address || "",
       buyerStateCode: resolveStateCode(invoice.customer?.gstin),
-      totalValue: invoice.totalAmount,
+      totalValue: Number(invoice.totalAmount),
       taxableValue,
-      items: invoice.items.map((item) => ({
-        productName: item.description,
-        hsnCode: item.hsn || "0000",
-        quantity: item.quantity,
-        taxableAmount: Number((item.price * item.quantity).toFixed(2)),
-        cgstRate: item.gstRate ? item.gstRate / 2 : 0,
-        sgstRate: item.gstRate ? item.gstRate / 2 : 0,
-      })),
+      items: invoice.items.map((item) => {
+        const gstRate = Number(item.gstRate ?? 0);
+        return {
+          productName: item.description,
+          hsnCode: item.hsn || "0000",
+          quantity: item.quantity,
+          taxableAmount: Number((Number(item.price) * item.quantity).toFixed(2)),
+          cgstRate: gstRate ? gstRate / 2 : 0,
+          sgstRate: gstRate ? gstRate / 2 : 0,
+        };
+      }),
       transport: input.transport,
     };
 
@@ -295,18 +318,15 @@ export async function generateEWayBillAction(input: GenerateEWayBillInput) {
     const result = await provider.generateEWayBill(credentials, payload);
     const status: EWayStatus = result.success ? "SUCCESS" : "FAILED";
 
-    await prisma.$executeRaw`
-      INSERT INTO EWayAuditLog (id, companyId, action, status, message, provider, createdAt)
-      VALUES (
-        ${`ewaylog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`},
-        ${company.id},
-        ${"GENERATE_EWAY_BILL"},
-        ${status},
-        ${result.message},
-        ${PROVIDER},
-        ${new Date().toISOString()}
-      )
-    `;
+    await prisma.eWayAuditLog.create({
+      data: {
+        companyId: company.id,
+        action: "GENERATE_EWAY_BILL",
+        status,
+        message: result.message,
+        provider: PROVIDER,
+      },
+    });
 
     revalidatePath("/dashboard/settings/eway");
     return {

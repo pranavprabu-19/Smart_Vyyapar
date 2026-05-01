@@ -46,8 +46,12 @@ export async function createEmployeeAction(data: {
     }
 
     try {
+        const company = await prisma.company.findFirst({ where: { name: data.companyName }});
+        if (!company) throw new Error("Company not found");
+
         const newEmployee = await prisma.employee.create({
             data: {
+                companyId: company.id,
                 name: data.name,
                 employeeId: finalEmployeeId,
                 role: data.role,
@@ -179,7 +183,7 @@ export async function getEmployeeStats(employeeId: string, companyName: string) 
             include: { customer: true }
         });
 
-        const totalSales = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+        const totalSales = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
         const invoiceCount = invoices.length;
 
         // Get Attendance for current month

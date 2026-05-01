@@ -30,8 +30,12 @@ export async function createGodownAction(data: {
     contact?: string;
 }) {
     try {
+        const company = await prisma.company.findFirst();
+        if (!company) throw new Error("Company not found");
+
         const godown = await prisma.godown.create({
             data: {
+                companyId: company.id,
                 name: data.name,
                 location: data.location || null,
                 manager: data.manager || null,
@@ -233,7 +237,7 @@ export async function getGodownStatsAction() {
         const stats = godowns.map(godown => {
             const totalItems = godown.stocks.length;
             const totalQuantity = godown.stocks.reduce((sum, stock) => sum + stock.quantity, 0);
-            const totalValue = godown.stocks.reduce((sum, stock) => sum + (stock.quantity * stock.product.price), 0);
+            const totalValue = godown.stocks.reduce((sum, stock) => sum + (stock.quantity * Number(stock.product.price)), 0);
             const lowStockItems = godown.stocks.filter(stock => stock.quantity <= stock.product.minStock).length;
 
             return {

@@ -26,7 +26,7 @@ export async function getDashboardMetrics(companyName: string = "Sai Associates"
             }
         });
 
-        const currentMonthRevenue = currentMonthInvoices._sum.totalAmount || 0;
+        const currentMonthRevenue = Number(currentMonthInvoices._sum.totalAmount || 0);
 
         // 2. Active Customers
         const customerCount = await prisma.customer.count({
@@ -40,7 +40,7 @@ export async function getDashboardMetrics(companyName: string = "Sai Associates"
             },
             where: { companyName: companyName }
         });
-        const totalOutstanding = outstanding._sum.balance || 0;
+        const totalOutstanding = Number(outstanding._sum.balance || 0);
         const customersWithDebt = await prisma.customer.count({
             where: {
                 balance: { gt: 0 },
@@ -59,7 +59,7 @@ export async function getDashboardMetrics(companyName: string = "Sai Associates"
                 price: true
             }
         });
-        const totalStockValue = products.reduce((acc: number, p: { stock: number; price: number }) => acc + (p.stock * p.price), 0);
+        const totalStockValue = products.reduce((acc: number, p) => acc + (p.stock * Number(p.price)), 0);
         const uniqueSkus = products.length;
 
 
@@ -76,7 +76,7 @@ export async function getDashboardMetrics(companyName: string = "Sai Associates"
             }
         });
 
-        const lastMonthRevenue = lastMonthResult._sum.totalAmount || 0;
+        const lastMonthRevenue = Number(lastMonthResult._sum.totalAmount || 0);
         const growth = lastMonthRevenue > 0 ? ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
 
 
@@ -98,7 +98,7 @@ export async function getDashboardMetrics(companyName: string = "Sai Associates"
             });
             weeklySales.push({
                 name: days[dayStart.getDay()],
-                total: dailyTotal._sum.totalAmount || 0
+                total: Number(dailyTotal._sum.totalAmount || 0)
             });
         }
 
@@ -139,7 +139,7 @@ export async function getDashboardMetrics(companyName: string = "Sai Associates"
             id: inv.id,
             name: inv.customerName,
             location: inv.billingAddress,
-            amount: inv.totalAmount
+            amount: Number(inv.totalAmount)
         }));
 
         // 9. Godown Status (with error handling)
@@ -165,9 +165,9 @@ export async function getDashboardMetrics(companyName: string = "Sai Associates"
             }
         });
 
-        const todaySales = todayInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+        const todaySales = todayInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
         const todayInvoiceCount = todayInvoices.length;
-        const todayCollections = todayInvoices.filter(inv => inv.status === 'PAID').reduce((sum, inv) => sum + inv.totalAmount, 0);
+        const todayCollections = todayInvoices.filter(inv => inv.status === 'PAID').reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
 
         // 11. Active Trips
         const activeTrips = await prisma.trip.count({
@@ -268,7 +268,7 @@ export async function getSmartInsights(companyName: string = "Sai Associates"): 
                 severity: "warning",
             });
         }
-        const totalOut = outstanding._sum.balance ?? 0;
+        const totalOut = Number(outstanding._sum.balance ?? 0);
         const custWithDebt = outstanding._count ?? 0;
         if (totalOut > 0) {
             insights.push({
@@ -281,7 +281,7 @@ export async function getSmartInsights(companyName: string = "Sai Associates"): 
                 severity: "info",
             });
         }
-        const rev = monthInvoices._sum.totalAmount ?? 0;
+        const rev = Number(monthInvoices._sum.totalAmount ?? 0);
         if (rev > 0) {
             insights.push({
                 id: "growth",
@@ -348,7 +348,7 @@ export async function getRecentActivity(companyName: string = "Sai Associates", 
                 id: `inv-${i.id}`,
                 type: "invoice",
                 title: `Invoice #${i.invoiceNo}`,
-                description: `${i.customerName} — ₹${i.totalAmount.toLocaleString()}`,
+                description: `${i.customerName} — ₹${Number(i.totalAmount).toLocaleString()}`,
                 timestamp: i.createdAt,
                 href: "/dashboard/invoices",
             });
@@ -441,7 +441,7 @@ export async function getAnalyticsProDataAction(period: AnalyticsProPeriod, comp
             }),
         ]);
 
-        const sumAmount = (arr: typeof currentInvoices) => arr.reduce((s, i) => s + i.totalAmount, 0);
+        const sumAmount = (arr: typeof currentInvoices) => arr.reduce((s, i) => s + Number(i.totalAmount), 0);
         const currentRevenue = sumAmount(currentInvoices);
         const prevRevenue = sumAmount(prevInvoices);
         const currentOrders = currentInvoices.length;
@@ -454,16 +454,16 @@ export async function getAnalyticsProDataAction(period: AnalyticsProPeriod, comp
         );
         const newCustomers = customers.filter((c) => c.createdAt >= start && c.createdAt <= end).length;
 
-        const outstanding = customers.reduce((s, c) => s + (c.balance || 0), 0);
+        const outstanding = customers.reduce((s, c) => s + Number(c.balance || 0), 0);
         const overdue = currentInvoices
-            .filter((i) => i.dueDate && i.dueDate < now && i.totalAmount > i.paidAmount)
-            .reduce((s, i) => s + (i.totalAmount - i.paidAmount), 0);
+            .filter((i) => i.dueDate && i.dueDate < now && Number(i.totalAmount) > Number(i.paidAmount))
+            .reduce((s, i) => s + (Number(i.totalAmount) - Number(i.paidAmount)), 0);
         const collectionRate = currentRevenue > 0 ? ((currentRevenue - overdue) / currentRevenue) * 100 : 100;
 
         const avgOrderCurrent = currentOrders > 0 ? currentRevenue / currentOrders : 0;
         const avgOrderPrev = prevOrders > 0 ? prevRevenue / prevOrders : 0;
 
-        const inventoryValue = products.reduce((s, p) => s + p.stock * (p.costPrice || 0), 0);
+        const inventoryValue = products.reduce((s, p) => s + p.stock * Number(p.costPrice || 0), 0);
         const lowStock = products.filter((p) => p.stock <= p.minStock).length;
         const deadStock = products.filter((p) => p.stock === 0).length;
         const turnover = inventoryValue > 0 ? currentRevenue / inventoryValue : 0;
@@ -478,7 +478,7 @@ export async function getAnalyticsProDataAction(period: AnalyticsProPeriod, comp
             dayEnd.setHours(23, 59, 59, 999);
             const total = currentInvoices
                 .filter((inv) => inv.date >= dayStart && inv.date <= dayEnd)
-                .reduce((s, inv) => s + inv.totalAmount, 0);
+                .reduce((s, inv) => s + Number(inv.totalAmount), 0);
             days.push({
                 day: dayStart.toLocaleDateString("en-US", { weekday: "short" }),
                 value: total,
@@ -490,7 +490,7 @@ export async function getAnalyticsProDataAction(period: AnalyticsProPeriod, comp
             inv.items.forEach((it) => {
                 const key = it.description;
                 const prev = productAgg.get(key) || { name: key, revenue: 0, units: 0 };
-                prev.revenue += it.price * it.quantity;
+                prev.revenue += Number(it.price) * it.quantity;
                 prev.units += it.quantity;
                 productAgg.set(key, prev);
             });
@@ -504,13 +504,13 @@ export async function getAnalyticsProDataAction(period: AnalyticsProPeriod, comp
         currentInvoices.forEach((inv) => {
             const key = inv.customerId || inv.customerName;
             const prev = customerAgg.get(key) || { name: inv.customerName, revenue: 0, orders: 0, outstanding: 0 };
-            prev.revenue += inv.totalAmount;
+            prev.revenue += Number(inv.totalAmount);
             prev.orders += 1;
             customerAgg.set(key, prev);
         });
         customers.forEach((c) => {
             const byId = customerAgg.get(c.id);
-            if (byId) byId.outstanding = c.balance || 0;
+            if (byId) byId.outstanding = Number(c.balance || 0);
         });
         const topCustomers = [...customerAgg.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 

@@ -44,7 +44,7 @@ export async function getPayrollStats(month: string, year: number, companyName: 
             const effectiveDays = presentDays + (halfDays * 0.5);
 
             // 1. Base Salary Calculation
-            const perDaySalary = emp.baseSalary / daysInMonth;
+            const perDaySalary = Number(emp.baseSalary) / daysInMonth;
             const earnedSalary = Math.round(perDaySalary * effectiveDays);
 
             // 2. Efficiency Bonuses
@@ -68,7 +68,7 @@ export async function getPayrollStats(month: string, year: number, companyName: 
                 bonus += trips.length * 50;
 
                 // Sum of allowances entered in Trip Sheets
-                tripIncentives = trips.reduce((sum, t) => sum + (t.allowance || 0), 0);
+                tripIncentives = trips.reduce((sum, t) => sum + Number(t.allowance || 0), 0);
             }
 
             // Employee: Full Attendance Bonus
@@ -84,7 +84,7 @@ export async function getPayrollStats(month: string, year: number, companyName: 
                 role: emp.role,
                 month,
                 year,
-                baseSalary: emp.baseSalary,
+                baseSalary: Number(emp.baseSalary),
                 attendanceDays: effectiveDays,
                 earnedSalary,
                 bonus,

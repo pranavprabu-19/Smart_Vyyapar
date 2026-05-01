@@ -180,9 +180,9 @@ export async function getCustomerOutstanding(customerId: string): Promise<{
       return {
         id: inv.id,
         invoiceNo: inv.invoiceNo,
-        totalAmount: inv.totalAmount,
-        paidAmount: inv.paidAmount,
-        balance: inv.totalAmount - inv.paidAmount,
+        totalAmount: Number(inv.totalAmount),
+        paidAmount: Number(inv.paidAmount),
+        balance: Number(inv.totalAmount) - Number(inv.paidAmount),
         date: inv.date,
         dueDate: inv.dueDate,
         daysPastDue,
@@ -197,8 +197,8 @@ export async function getCustomerOutstanding(customerId: string): Promise<{
       customerName: customer.name,
       phone: customer.phone,
       totalOutstanding,
-      creditLimit: customer.credit?.creditLimit || 0,
-      availableCredit: Number(((customer.credit?.creditLimit || 0) - totalOutstanding).toFixed(2)),
+      creditLimit: Number(customer.credit?.creditLimit || 0),
+      availableCredit: Number((Number(customer.credit?.creditLimit || 0) - totalOutstanding).toFixed(2)),
       creditDays: customer.credit?.creditDays || 30,
       tier: customer.credit?.tier || "C",
       isBlocked: customer.credit?.isBlocked || false,
@@ -236,9 +236,12 @@ async function generatePaymentNo(companyName: string): Promise<string> {
 export async function recordPayment(data: RecordPaymentData) {
   try {
     const paymentNo = await generatePaymentNo(data.companyName);
+    const company = await prisma.company.findFirst({ where: { name: data.companyName }});
+    if (!company) throw new Error("Company not found");
     const payment = await prisma.$transaction(async (tx) => {
       const createdPayment = await tx.payment.create({
         data: {
+          companyId: company.id,
           companyName: data.companyName,
           paymentNo,
           customerId: data.customerId,
@@ -261,8 +264,8 @@ export async function recordPayment(data: RecordPaymentData) {
         });
 
         if (invoice) {
-          const newPaidAmount = invoice.paidAmount + data.amount;
-          const newStatus = newPaidAmount >= invoice.totalAmount ? "PAID" : "PENDING";
+          const newPaidAmount = Number(invoice.paidAmount) + Number(data.amount);
+          const newStatus = newPaidAmount >= Number(invoice.totalAmount) ? "PAID" : "PENDING";
 
           await tx.invoice.update({
             where: { id: data.invoiceId },
@@ -436,7 +439,7 @@ export async function getOverdueCustomers(companyName: string) {
       if (daysPastDue <= 0) continue; // Not overdue yet
 
       const existing = customerMap.get(invoice.customerId!);
-      const balance = invoice.totalAmount - invoice.paidAmount;
+      const balance = Number(invoice.totalAmount) - Number(invoice.paidAmount);
 
       if (existing) {
         existing.invoices.push(invoice);
@@ -509,7 +512,7 @@ export async function getUnpaidInvoices(companyName: string) {
 
       return {
         ...inv,
-        balance: inv.totalAmount - inv.paidAmount,
+        balance: Number(inv.totalAmount) - Number(inv.paidAmount),
         dueDate,
         daysPastDue,
         isOverdue: daysPastDue > 0,
@@ -607,7 +610,7 @@ export async function getCollectionMetrics(companyName: string) {
     });
 
     const totalOutstanding = pendingInvoices.reduce(
-      (sum, inv) => sum + (inv.totalAmount - inv.paidAmount),
+      (sum, inv) => sum + (Number(inv.totalAmount) - Number(inv.paidAmount)),
       0
     );
 
@@ -621,7 +624,7 @@ export async function getCollectionMetrics(companyName: string) {
     });
 
     const collectionsLast30Days = recentPayments.reduce(
-      (sum, pay) => sum + pay.amount,
+      (sum, pay) => sum + Number(pay.amount),
       0
     );
 
@@ -632,7 +635,7 @@ export async function getCollectionMetrics(companyName: string) {
     for (const inv of pendingInvoices) {
       const dueDate = inv.dueDate || new Date(inv.date.getTime() + 30 * 24 * 60 * 60 * 1000);
       if (today > dueDate) {
-        overdueAmount += inv.totalAmount - inv.paidAmount;
+        overdueAmount += Number(inv.totalAmount) - Number(inv.paidAmount);
         overdueCount++;
       }
     }

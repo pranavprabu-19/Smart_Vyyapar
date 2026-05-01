@@ -23,17 +23,20 @@ function toCsv(rows: Record<string, unknown>[]): string {
 
 async function logCAActivity(companyName: string, caUserEmail: string | undefined, action: string, details?: string) {
     try {
-        await prisma.$executeRaw`
-            INSERT INTO CAAuditLog (id, companyName, caUserEmail, action, details, createdAt)
-            VALUES (
-                ${`calog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`},
-                ${companyName},
-                ${caUserEmail || null},
-                ${action},
-                ${details || null},
-                ${new Date().toISOString()}
-            )
-        `;
+        const company = await prisma.company.findUnique({
+            where: { name: companyName },
+            select: { id: true },
+        });
+        if (!company) return;
+        await prisma.cAAuditLog.create({
+            data: {
+                companyId: company.id,
+                companyName,
+                caUserEmail: caUserEmail || null,
+                action,
+                details: details || null,
+            },
+        });
     } catch {
         // If migration not applied yet, keep exports functional.
     }
@@ -67,19 +70,22 @@ export async function exportCASalesRegisterAction(input: {
     });
 
     const rows = invoices.flatMap((inv) =>
-        inv.items.map((item) => ({
-            invoiceNo: inv.invoiceNo,
-            invoiceDate: inv.date.toISOString().split("T")[0],
-            customerName: inv.customerName,
-            productDescription: item.description,
-            hsn: item.hsn || "",
-            quantity: item.quantity,
-            unitPrice: Number(item.price.toFixed(2)),
-            lineTaxableValue: Number((item.quantity * item.price).toFixed(2)),
-            gstRate: item.gstRate,
-            paymentMode: inv.paymentMode,
-            status: inv.status,
-        }))
+        inv.items.map((item) => {
+            const unitPrice = Number(item.price ?? 0);
+            return {
+                invoiceNo: inv.invoiceNo,
+                invoiceDate: inv.date.toISOString().split("T")[0],
+                customerName: inv.customerName,
+                productDescription: item.description,
+                hsn: item.hsn || "",
+                quantity: item.quantity,
+                unitPrice: Number(unitPrice.toFixed(2)),
+                lineTaxableValue: Number((item.quantity * unitPrice).toFixed(2)),
+                gstRate: Number(item.gstRate ?? 0),
+                paymentMode: inv.paymentMode,
+                status: inv.status,
+            };
+        })
     );
 
     await logCAActivity(
@@ -115,23 +121,27 @@ export async function exportCAEWaySummaryAction(input: {
     const start = new Date(input.year, input.month - 1, 1);
     const end = new Date(input.year, input.month, 1);
 
-    const logs = await prisma.$queryRaw<Array<any>>`
-        SELECT action, status, message, provider, createdAt
-        FROM EWayAuditLog
-        WHERE companyId IN (
-            SELECT id FROM Company WHERE name = ${input.companyName}
-        )
-        AND createdAt >= ${start.toISOString()}
-        AND createdAt < ${end.toISOString()}
-        ORDER BY createdAt ASC
-    `;
+    const logs = await prisma.eWayAuditLog.findMany({
+        where: {
+            company: { name: input.companyName },
+            createdAt: { gte: start, lt: end },
+        },
+        orderBy: { createdAt: "asc" },
+        select: {
+            action: true,
+            status: true,
+            message: true,
+            provider: true,
+            createdAt: true,
+        },
+    });
 
     const rows = logs.map((log) => ({
         action: log.action,
         status: log.status,
         provider: log.provider || "",
         message: log.message || "",
-        createdAt: new Date(log.createdAt).toISOString(),
+        createdAt: log.createdAt.toISOString(),
     }));
 
     await logCAActivity(

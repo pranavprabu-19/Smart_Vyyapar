@@ -87,8 +87,8 @@ export async function predictStockoutAction(companyName: string): Promise<{
                 sale_date: thirtyDaysAgo.toISOString().split("T")[0],
                 category: product.category,
                 current_stock: product.stock,
-                purchase_price: product.costPrice || 0,
-                selling_price: product.price || 0,
+                purchase_price: Number(product.costPrice ?? 0),
+                selling_price: Number(product.price ?? 0),
                 supplier_lead_time_days: 7,
                 recent_daily_sales: dailySales,
                 avgDailySales,
@@ -214,15 +214,24 @@ export async function refreshLiquidationCandidates(companyName: string): Promise
 
         if (mlFeatureFlags.enableLiquidationWriteback) {
             try {
-                await prisma.$executeRaw`UPDATE Product SET isLiquidationCandidate = 0, liquidationReason = NULL, liquidationFlaggedAt = NULL WHERE companyName = ${companyName}`;
+                await prisma.product.updateMany({
+                    where: { companyName },
+                    data: {
+                        isLiquidationCandidate: false,
+                        liquidationReason: null,
+                        liquidationFlaggedAt: null,
+                    },
+                });
+                const flaggedAt = new Date();
                 for (const item of candidates) {
-                    await prisma.$executeRaw`
-                        UPDATE Product
-                        SET isLiquidationCandidate = 1,
-                            liquidationReason = ${item.liquidationReason || "ML low-velocity with >90 days stock"},
-                            liquidationFlaggedAt = ${new Date().toISOString()}
-                        WHERE id = ${item.productId}
-                    `;
+                    await prisma.product.update({
+                        where: { id: item.productId },
+                        data: {
+                            isLiquidationCandidate: true,
+                            liquidationReason: item.liquidationReason || "ML low-velocity with >90 days stock",
+                            liquidationFlaggedAt: flaggedAt,
+                        },
+                    });
                 }
             } catch {
                 // Ignore if migration not yet applied.

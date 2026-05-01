@@ -43,7 +43,10 @@ export async function predictCustomerRiskAction(
 
         const modelInputs: CustomerPaymentInput[] = customers.map((c) => {
             const totalOrders = c.invoices.length;
-            const totalPurchases = c.invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+            const totalPurchases = c.invoices.reduce(
+                (sum, inv) => sum + Number(inv.totalAmount ?? 0),
+                0
+            );
             const averageOrderValue = totalOrders > 0 ? totalPurchases / totalOrders : 0;
             const invoicesLast90Days = c.invoices.filter((i) => new Date(i.date) >= ninetyDaysAgo).length;
 
@@ -64,12 +67,12 @@ export async function predictCustomerRiskAction(
                 customer_id: c.id,
                 customer_name: c.name,
                 total_purchases: totalPurchases,
-                outstanding_balance: c.credit?.currentBalance ?? c.balance ?? 0,
+                outstanding_balance: Number(c.credit?.currentBalance ?? c.balance ?? 0),
                 days_since_last_purchase: daysSinceLastPurchase,
                 payment_frequency: paymentFrequency,
                 average_order_value: averageOrderValue,
                 total_orders: totalOrders,
-                credit_limit: c.credit?.creditLimit || 0,
+                credit_limit: Number(c.credit?.creditLimit ?? 0),
                 invoices_last_90_days: invoicesLast90Days,
                 credit_notes_last_90_days: creditNotesLast90ByCustomer.get(c.id) ?? 0,
             };
@@ -121,7 +124,7 @@ export async function runCreditLimitAutomationJob(companyName: string): Promise<
 
         const customerRows = await prisma.customer.findMany({
             where: { companyName, id: { in: riskyCustomers.map((c) => c.customer_id) } },
-            include: { credit: true },
+            include: { credit: true, company: true },
         });
         const customerMap = new Map(customerRows.map((c) => [c.id, c]));
 
@@ -130,7 +133,7 @@ export async function runCreditLimitAutomationJob(companyName: string): Promise<
             const customer = customerMap.get(customerRisk.customer_id);
             if (!customer?.credit) continue;
 
-            const currentLimit = customer.credit.creditLimit || 0;
+            const currentLimit = Number(customer.credit.creditLimit ?? 0);
             if (currentLimit <= 0) continue;
 
             const reducedLimit = Number(Math.max(currentLimit * 0.8, 0).toFixed(2));
@@ -140,18 +143,25 @@ export async function runCreditLimitAutomationJob(companyName: string): Promise<
                 where: { id: customer.credit.id },
                 data: {
                     creditLimit: reducedLimit,
-                    availableCredit: Math.max(0, reducedLimit - (customer.credit.currentBalance || 0)),
+                    availableCredit: Math.max(0, reducedLimit - Number(customer.credit.currentBalance ?? 0)),
                 },
             });
             reduced += 1;
 
             try {
-                await prisma.$executeRaw`
-                    INSERT INTO CreditLimitAction
-                    (id, customerCreditId, companyName, previousLimit, newLimit, riskScore, policyAction, reason, notificationStatus, createdAt)
-                    VALUES
-                    (${`cla_${Date.now()}_${customer.credit.id}`}, ${customer.credit.id}, ${companyName}, ${currentLimit}, ${reducedLimit}, ${customerRisk.risk_score}, ${"REDUCE_LIMIT"}, ${"Auto-reduced by ML risk automation job"}, ${"PENDING"}, ${new Date().toISOString()})
-                `;
+                await prisma.creditLimitAction.create({
+                    data: {
+                        customerCreditId: customer.credit.id,
+                        companyId: customer.companyId,
+                        companyName,
+                        previousLimit: currentLimit,
+                        newLimit: reducedLimit,
+                        riskScore: customerRisk.risk_score,
+                        policyAction: "REDUCE_LIMIT",
+                        reason: "Auto-reduced by ML risk automation job",
+                        notificationStatus: "PENDING",
+                    },
+                });
             } catch {
                 // Migration may not be applied yet; do not fail credit adjustment.
             }

@@ -23,15 +23,19 @@ export async function savePhotoAction(data: {
             ? JSON.stringify(data.stockSnapshot)
             : null;
 
+        const company = await prisma.company.findFirst({ where: { name: data.companyName }});
+        if (!company) throw new Error("Company not found");
+
         const photo = await prisma.photo.create({
             data: {
+                companyId: company.id,
                 url: data.url,
                 lat: data.lat,
                 lng: data.lng,
                 address: data.address,
                 accuracy: data.accuracy,
                 isMock: data.isMock,
-                stockSnapshot: stockJson,
+                stockSnapshot: data.stockSnapshot ? (data.stockSnapshot as any) : undefined,
                 userName: data.userName,
                 userRole: data.userRole,
                 companyName: data.companyName

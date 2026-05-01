@@ -88,9 +88,9 @@ export async function getSchemesAction(companyName: string, filters?: {
 
     // Calculate stats
     const schemesWithStats = schemes.map(scheme => {
-      const totalDiscount = scheme.appliedOrders.reduce((sum, o) => sum + o.discount, 0);
+      const totalDiscount = scheme.appliedOrders.reduce((sum, o) => sum + Number(o.discount), 0);
       const usageCount = scheme._count.appliedOrders;
-      const roi = scheme.usedBudget > 0 ? ((totalDiscount / scheme.usedBudget) * 100) : 0;
+      const roi = Number(scheme.usedBudget) > 0 ? ((totalDiscount / Number(scheme.usedBudget)) * 100) : 0;
 
       return {
         ...scheme,
@@ -142,8 +142,12 @@ export async function getSchemeAction(schemeId: string) {
 // Create new scheme
 export async function createSchemeAction(data: CreateSchemeData) {
   try {
+    const company = await prisma.company.findFirst({ where: { name: data.companyName } });
+    if (!company) throw new Error("Company not found");
+
     const scheme = await prisma.scheme.create({
       data: {
+        companyId: company.id,
         companyName: data.companyName,
         name: data.name,
         description: data.description,
@@ -158,9 +162,9 @@ export async function createSchemeAction(data: CreateSchemeData) {
         startDate: data.startDate,
         endDate: data.endDate,
         isActive: true,
-        applicableProducts: data.applicableProducts ? JSON.stringify(data.applicableProducts) : null,
-        applicableCustomers: data.applicableCustomers ? JSON.stringify(data.applicableCustomers) : null,
-        customerTiers: data.customerTiers ? JSON.stringify(data.customerTiers) : null,
+        applicableProducts: data.applicableProducts ? (data.applicableProducts as any) : null,
+        applicableCustomers: data.applicableCustomers ? (data.applicableCustomers as any) : null,
+        customerTiers: data.customerTiers ? (data.customerTiers as any) : null,
         budget: data.budget,
         maxUsagePerCustomer: data.maxUsagePerCustomer,
       }
@@ -178,9 +182,9 @@ export async function createSchemeAction(data: CreateSchemeData) {
 export async function updateSchemeAction(schemeId: string, data: Partial<CreateSchemeData>) {
   try {
     const updateData: any = { ...data };
-    if (data.applicableProducts) updateData.applicableProducts = JSON.stringify(data.applicableProducts);
-    if (data.applicableCustomers) updateData.applicableCustomers = JSON.stringify(data.applicableCustomers);
-    if (data.customerTiers) updateData.customerTiers = JSON.stringify(data.customerTiers);
+    if (data.applicableProducts) updateData.applicableProducts = data.applicableProducts;
+    if (data.applicableCustomers) updateData.applicableCustomers = data.applicableCustomers;
+    if (data.customerTiers) updateData.customerTiers = data.customerTiers;
 
     const scheme = await prisma.scheme.update({
       where: { id: schemeId },
@@ -315,7 +319,7 @@ export async function calculateApplicableSchemes(
 
       // Check customer tier
       if (scheme.customerTiers) {
-        const tiers = JSON.parse(scheme.customerTiers);
+        const tiers = scheme.customerTiers as any as string[];
         const customerTier = customer?.credit?.tier || "C";
         if (!tiers.includes(customerTier)) {
           isApplicable = false;
@@ -323,7 +327,7 @@ export async function calculateApplicableSchemes(
       }
 
       // Check minimum order amount
-      if (scheme.minAmount && orderTotal < scheme.minAmount) {
+      if (scheme.minAmount && orderTotal < Number(scheme.minAmount)) {
         isApplicable = false;
       }
 
@@ -335,16 +339,16 @@ export async function calculateApplicableSchemes(
       if (isApplicable) {
         switch (scheme.type) {
           case "PERCENTAGE_DISCOUNT":
-            discount = (orderTotal * (scheme.discountPercent || 0)) / 100;
+            discount = (orderTotal * Number(scheme.discountPercent || 0)) / 100;
             description = `${scheme.discountPercent}% discount`;
             break;
           case "FLAT_DISCOUNT":
-            discount = scheme.discountAmount || 0;
+            discount = Number(scheme.discountAmount || 0);
             description = `Flat ₹${discount} off`;
             break;
           case "QUANTITY_DISCOUNT":
             if (scheme.discountPercent) {
-              discount = (orderTotal * scheme.discountPercent) / 100;
+              discount = (orderTotal * Number(scheme.discountPercent)) / 100;
               description = `${scheme.discountPercent}% off on ${scheme.minQuantity}+ units`;
             }
             break;

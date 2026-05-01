@@ -235,16 +235,15 @@ export async function updateInvoicePaymentAction(
 ) {
     try {
         const scopedCompany = await getScopedCompanyName(companyName);
-        const invoice = await prisma.invoice.findUnique({
-            where: { invoiceNo: invoiceId },
-            select: { companyName: true },
+        const invoice = await prisma.invoice.findFirst({
+            where: { invoiceNo: invoiceId, companyName: scopedCompany },
+            select: { id: true, companyName: true },
         });
-        if (!invoice) return { success: false, error: "Invoice not found" };
-        if (invoice.companyName !== scopedCompany) {
-            return { success: false, error: "Access denied: invoice does not belong to the selected company." };
+        if (!invoice) {
+            return { success: false, error: "Invoice not found or access denied for the selected company." };
         }
         await prisma.invoice.update({
-            where: { invoiceNo: invoiceId },
+            where: { id: invoice.id },
             data: {
                 status: status,
                 paymentMode: paymentMode

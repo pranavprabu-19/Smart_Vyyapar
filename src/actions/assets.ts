@@ -31,8 +31,12 @@ export interface UpdateAssetData {
 
 export async function createAssetAction(data: CreateAssetData) {
     try {
+        const company = await prisma.company.findFirst({ where: { name: data.companyName }});
+        if (!company) throw new Error("Company not found");
+
         const asset = await prisma.asset.create({
             data: {
+                companyId: company.id,
                 companyName: data.companyName,
                 assetType: data.assetType,
                 name: data.name,
@@ -114,7 +118,7 @@ export async function calculateAssetDepreciationAction(id: string) {
 
         // Calculate depreciated value: V = P * (1 - r)^t
         const depreciatedValue =
-            asset.purchaseValue * Math.pow(1 - asset.depreciationRate / 100, yearsSincePurchase);
+            Number(asset.purchaseValue) * Math.pow(1 - Number(asset.depreciationRate || 10) / 100, yearsSincePurchase);
 
         // Update current value
         const updatedAsset = await prisma.asset.update({

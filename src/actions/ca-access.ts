@@ -31,7 +31,7 @@ export async function inviteCAAction(input: {
 
         const company = await prisma.company.findUnique({
             where: { name: input.companyName },
-            select: { name: true },
+            select: { id: true, name: true },
         });
         if (!company) return { success: false, error: "Company not found." };
 
@@ -67,17 +67,15 @@ export async function inviteCAAction(input: {
         const expiryHours = Math.max(1, input.inviteValidityHours ?? 72);
         const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000);
 
-        await prisma.$executeRaw`
-            INSERT INTO CAInviteToken (id, email, companyName, token, expiresAt, createdAt)
-            VALUES (
-                ${`cainvite_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`},
-                ${input.caEmail},
-                ${input.companyName},
-                ${token},
-                ${expiresAt.toISOString()},
-                ${new Date().toISOString()}
-            )
-        `;
+        await prisma.cAInviteToken.create({
+            data: {
+                email: input.caEmail,
+                companyId: company.id,
+                companyName: input.companyName,
+                token,
+                expiresAt,
+            },
+        });
 
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         const inviteLink = `${appUrl}/ca-portal/activate?token=${token}`;
@@ -86,17 +84,15 @@ export async function inviteCAAction(input: {
         console.log("[CA INVITE] Send this activation link to CA:", inviteLink);
 
         try {
-            await prisma.$executeRaw`
-                INSERT INTO CAAuditLog (id, companyName, caUserEmail, action, details, createdAt)
-                VALUES (
-                    ${`calog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`},
-                    ${input.companyName},
-                    ${input.caEmail},
-                    ${"INVITE_CA"},
-                    ${`Invite generated. Expires at ${expiresAt.toISOString()}`},
-                    ${new Date().toISOString()}
-                )
-            `;
+            await prisma.cAAuditLog.create({
+                data: {
+                    companyId: company.id,
+                    companyName: input.companyName,
+                    caUserEmail: input.caEmail,
+                    action: "INVITE_CA",
+                    details: `Invite generated. Expires at ${expiresAt.toISOString()}`,
+                },
+            });
         } catch {
             // Ignore if migration not applied yet.
         }
@@ -125,16 +121,12 @@ export async function activateCAInviteAction(input: {
             return { success: false, error: policy.error };
         }
 
-        const rows = await prisma.$queryRaw<Array<any>>`
-            SELECT id, email, companyName, token, expiresAt, usedAt
-            FROM CAInviteToken
-            WHERE token = ${input.token}
-            LIMIT 1
-        `;
-        const invite = rows[0];
+        const invite = await prisma.cAInviteToken.findUnique({
+            where: { token: input.token },
+        });
         if (!invite) return { success: false, error: "Invalid invite token." };
         if (invite.usedAt) return { success: false, error: "Invite token already used." };
-        if (new Date(invite.expiresAt).getTime() < Date.now()) {
+        if (invite.expiresAt.getTime() < Date.now()) {
             return { success: false, error: "Invite token expired." };
         }
 
@@ -143,11 +135,10 @@ export async function activateCAInviteAction(input: {
             data: { password: await hashPassword(input.newPassword), role: "CA", companyName: invite.companyName },
         });
 
-        await prisma.$executeRaw`
-            UPDATE CAInviteToken
-            SET usedAt = ${new Date().toISOString()}
-            WHERE token = ${input.token}
-        `;
+        await prisma.cAInviteToken.update({
+            where: { token: input.token },
+            data: { usedAt: new Date() },
+        });
 
         return { success: true, message: "CA account activated." };
     } catch (e: any) {

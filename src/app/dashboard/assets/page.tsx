@@ -48,11 +48,11 @@ const STATUSES = ["ACTIVE", "SOLD", "DISPOSED", "UNDER_REPAIR"];
 
 export default function AssetsPage() {
     const { user } = useAuth();
-    const [assets, setAssets] = useState<Asset[]>([]);
+    const [assets, setAssets] = useState<any[]>([]);
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+    const [editingAsset, setEditingAsset] = useState<any | null>(null);
 
     const [formData, setFormData] = useState({
         assetType: "VEHICLE",

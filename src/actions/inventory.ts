@@ -52,12 +52,21 @@ export async function createProductAction(data: {
 }) {
     try {
         const scopedCompany = await getScopedCompanyName(data.companyName);
+        const company = await prisma.company.findUnique({
+            where: { name: scopedCompany },
+            select: { id: true },
+        });
+        if (!company) {
+            return { success: false, error: "Company not found." };
+        }
 
-        const existingBySku = await prisma.product.findUnique({ where: { sku: data.sku } });
-        if (existingBySku && existingBySku.companyName !== scopedCompany) {
+        const existingBySku = await prisma.product.findFirst({
+            where: { companyId: company.id, sku: data.sku },
+        });
+        if (existingBySku) {
             return {
                 success: false,
-                error: `SKU '${data.sku}' already exists under '${existingBySku.companyName}'. SKUs are currently global, so they must be unique across companies.`,
+                error: `SKU '${data.sku}' already exists in '${scopedCompany}'.`,
             };
         }
 
@@ -70,7 +79,8 @@ export async function createProductAction(data: {
                 costPrice: data.costPrice || 0,
                 category: data.category || "General",
                 minStock: data.minStock || 10,
-                companyName: scopedCompany
+                companyId: company.id,
+                companyName: scopedCompany,
             }
         });
 
@@ -104,11 +114,10 @@ export async function updateStockAction(
 ) {
     try {
         const scopedCompany = await getScopedCompanyName(companyName);
-        const product = await prisma.product.findUnique({ where: { sku } });
+        const product = await prisma.product.findFirst({
+            where: { sku, companyName: scopedCompany },
+        });
         if (!product) throw new Error("Product not found");
-        if (product.companyName !== scopedCompany) {
-            throw new Error("Access denied: product does not belong to the selected company.");
-        }
 
         const targetGodownId = godownId || await ensureDefaultGodownId();
 

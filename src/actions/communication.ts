@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 function customerFromDbInvoice(invoice: {
     customerName: string;
     billingAddress: string;
-    customerDetails: string;
+    customerDetails: any;
     customer: {
         name: string;
         address: string | null;
@@ -33,7 +33,7 @@ function customerFromDbInvoice(invoice: {
         };
     }
     try {
-        const parsed = JSON.parse(invoice.customerDetails) as Partial<InvoiceData["customer"]>;
+        const parsed = (typeof invoice.customerDetails === 'string' ? JSON.parse(invoice.customerDetails) : invoice.customerDetails) as Partial<InvoiceData["customer"]>;
         return {
             name: parsed.name || invoice.customerName,
             address: parsed.address || invoice.billingAddress || "",
@@ -66,9 +66,9 @@ function invoiceDbRowToInvoiceData(
             description: string;
             hsn: string | null;
             quantity: number;
-            price: number;
-            costPrice: number;
-            gstRate: number;
+            price: any;
+            costPrice: any;
+            gstRate: any;
         }>;
     } & Parameters<typeof customerFromDbInvoice>[0]
 ): InvoiceData {
@@ -88,10 +88,10 @@ function invoiceDbRowToInvoiceData(
             hsn: item.hsn || "",
             quantity: item.quantity,
             unit: "Nos",
-            mrp: item.price,
-            price: item.price,
-            costPrice: item.costPrice,
-            gstRate: item.gstRate || 18,
+            mrp: Number(item.price),
+            price: Number(item.price),
+            costPrice: Number(item.costPrice),
+            gstRate: Number(item.gstRate || 18),
         })),
     };
 }
@@ -169,7 +169,7 @@ export async function prepareInvoiceManualWhatsAppFromDbAction(input: {
         }
 
         const invoiceData = invoiceDbRowToInvoiceData(invoice);
-        const normalized = normalizeInvoiceForPdf({ ...invoiceData, totalAmount: invoice.totalAmount });
+        const normalized = normalizeInvoiceForPdf({ ...invoiceData, totalAmount: Number(invoice.totalAmount) });
         const doc = await generateInvoicePDF(normalized);
         const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
         const deterministicName = `invoice-${invoice.id}-${invoice.invoiceNo}`;
@@ -180,7 +180,7 @@ export async function prepareInvoiceManualWhatsAppFromDbAction(input: {
         const fullUrl = `${publicBase}${fileUrl}`;
 
         const customerName = invoiceData.customer.name;
-        const amt = invoice.totalAmount.toLocaleString("en-IN", {
+        const amt = Number(invoice.totalAmount).toLocaleString("en-IN", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         });

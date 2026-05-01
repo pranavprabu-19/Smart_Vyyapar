@@ -1,0 +1,28 @@
+# Python build artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Local virtualenvs
+.venv
+venv
+env
+
+# Test / cache
+.pytest_cache
+.coverage
+htmlcov
+
+# Editor / VCS / OS
+.git
+.gitignore
+.vscode
+**/.DS_Store
+*.log
+
+# Docs / Docker artifacts
+README.md
+*.md
+Dockerfile
+.dockerignore

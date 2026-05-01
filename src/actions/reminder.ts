@@ -98,14 +98,14 @@ export async function getInvoicesForReminder(
         const creditDays = inv.customer?.credit?.creditDays || 30;
         const dueDate = inv.dueDate || new Date(inv.date.getTime() + creditDays * 24 * 60 * 60 * 1000);
         const daysPastDue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (24 * 60 * 60 * 1000)));
-        const balance = inv.totalAmount - inv.paidAmount;
+        const balance = Number(inv.totalAmount) - Number(inv.paidAmount);
 
         return {
           id: inv.id,
           invoiceNo: inv.invoiceNo,
           date: inv.date,
-          totalAmount: inv.totalAmount,
-          paidAmount: inv.paidAmount,
+          totalAmount: Number(inv.totalAmount),
+          paidAmount: Number(inv.paidAmount),
           balance,
           dueDate,
           daysPastDue,
@@ -116,7 +116,7 @@ export async function getInvoicesForReminder(
           items: inv.items.map((item) => ({
             description: item.description,
             quantity: item.quantity,
-            price: item.price,
+            price: Number(item.price),
           })),
         };
       })
@@ -168,9 +168,9 @@ export async function getInvoiceForReminder(invoiceId: string) {
       id: invoice.id,
       invoiceNo: invoice.invoiceNo,
       date: invoice.date,
-      totalAmount: invoice.totalAmount,
-      paidAmount: invoice.paidAmount,
-      balance: invoice.totalAmount - invoice.paidAmount,
+      totalAmount: Number(invoice.totalAmount),
+      paidAmount: Number(invoice.paidAmount),
+      balance: Number(invoice.totalAmount) - Number(invoice.paidAmount),
       dueDate,
       daysPastDue,
       isOverdue: daysPastDue > 0,
@@ -180,7 +180,7 @@ export async function getInvoiceForReminder(invoiceId: string) {
       items: invoice.items.map((item) => ({
         description: item.description,
         quantity: item.quantity,
-        price: item.price,
+        price: Number(item.price),
       })),
     };
 
@@ -397,8 +397,12 @@ export async function logReminder(data: {
   reminderType: "FIRST" | "SECOND" | "THIRD" | "FINAL";
 }) {
   try {
+    const company = await prisma.company.findFirst({ where: { name: data.companyName } });
+    if (!company) throw new Error("Company not found");
+
     const reminder = await prisma.paymentReminder.create({
       data: {
+        companyId: company.id,
         companyName: data.companyName,
         customerId: data.customerId,
         invoiceId: data.invoiceId,
@@ -474,9 +478,9 @@ export async function sendReminderWithInvoicePdf(
         hsn: item.hsn || "",
         quantity: item.quantity,
         unit: "Nos",
-        mrp: item.price,
-        price: item.price,
-        gstRate: item.gstRate || 18,
+        mrp: Number(item.price),
+        price: Number(item.price),
+        gstRate: Number(item.gstRate || 18),
       })),
     };
 
@@ -508,7 +512,7 @@ export async function sendReminderWithInvoicePdf(
       companyName: invoice.companyName,
       customerId: invoice.customer.id,
       invoiceId: invoice.id,
-      dueAmount: invoice.totalAmount - invoice.paidAmount,
+      dueAmount: Number(invoice.totalAmount) - Number(invoice.paidAmount),
       dueDate: new Date(dueDate),
       daysPastDue,
       messageText: messageRes.message,
@@ -580,9 +584,9 @@ export async function prepareReminderManualShare(
         hsn: item.hsn || "",
         quantity: item.quantity,
         unit: "Nos",
-        mrp: item.price,
-        price: item.price,
-        gstRate: item.gstRate || 18,
+        mrp: Number(item.price),
+        price: Number(item.price),
+        gstRate: Number(item.gstRate || 18),
       })),
     };
 
@@ -602,7 +606,7 @@ export async function prepareReminderManualShare(
       companyName: invoice.companyName,
       customerId: invoice.customer.id,
       invoiceId: invoice.id,
-      dueAmount: invoice.totalAmount - invoice.paidAmount,
+      dueAmount: Number(invoice.totalAmount) - Number(invoice.paidAmount),
       dueDate: new Date(dueDate),
       daysPastDue,
       messageText: messageRes.message,
@@ -714,8 +718,12 @@ export async function getInvoiceReminderHistory(invoiceId: string) {
  */
 export async function createReminderTemplate(data: CreateReminderTemplateData) {
   try {
+    const company = await prisma.company.findFirst({ where: { name: data.companyName } });
+    if (!company) throw new Error("Company not found");
+
     const template = await prisma.reminderTemplate.create({
       data: {
+        companyId: company.id,
         companyName: data.companyName,
         name: data.name,
         type: data.type,

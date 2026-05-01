@@ -30,7 +30,7 @@ export async function getBusinessIntelligenceAction(
         const dailyRevenueMap = new Map<string, number>();
         for (const inv of invoices) {
             const dateStr = format(new Date(inv.date), "yyyy-MM-dd");
-            dailyRevenueMap.set(dateStr, (dailyRevenueMap.get(dateStr) || 0) + (inv.totalAmount || 0));
+            dailyRevenueMap.set(dateStr, (dailyRevenueMap.get(dateStr) || 0) + Number(inv.totalAmount || 0));
         }
 
         const daily_revenue = Array.from(dailyRevenueMap.entries()).map(([date, revenue]) => ({
@@ -46,7 +46,7 @@ export async function getBusinessIntelligenceAction(
 
         const customers = customerRows.map(c => {
             const totalOrders = c.invoices.length;
-            const totalRevenue = c.invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+            const totalRevenue = c.invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
             
             const latestInvoiceDate = c.invoices.reduce<Date | null>((latest, inv) => {
                 const invoiceDate = new Date(inv.date);

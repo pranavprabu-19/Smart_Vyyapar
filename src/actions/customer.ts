@@ -53,15 +53,8 @@ export async function saveCustomerAction(data: CreateCustomerData) {
             }
         }
 
-        // 2. If not found by ID (or no ID), try GSTIN
+        // 2. If not found by ID (or no ID), try GSTIN scoped to current company.
         if (!existingCustomer && normalized.gstin) {
-            const anyByGstin = await prisma.customer.findUnique({ where: { gstin: normalized.gstin } });
-            if (anyByGstin && anyByGstin.companyName !== scopedCompany) {
-                return {
-                    success: false,
-                    error: `GSTIN '${normalized.gstin}' already exists under '${anyByGstin.companyName}'.`,
-                };
-            }
             existingCustomer = await prisma.customer.findFirst({
                 where: { gstin: normalized.gstin, companyName: scopedCompany },
             });
@@ -85,8 +78,12 @@ export async function saveCustomerAction(data: CreateCustomerData) {
             });
         } else {
             // Create
+            const company = await prisma.company.findFirst({ where: { name: scopedCompany }});
+            if (!company) throw new Error("Company not found");
+
             result = await prisma.customer.create({
                 data: {
+                    companyId: company.id,
                     ...normalized,
                     lat: normalized.lat,
                     lng: normalized.lng,
@@ -246,7 +243,7 @@ export async function getCustomerStatementAction(input: {
                 type: "INVOICE",
                 refNo: inv.invoiceNo,
                 description: `Invoice ${inv.invoiceNo} (${inv.status})`,
-                debit: inv.totalAmount,
+                debit: Number(inv.totalAmount),
                 credit: 0,
                 runningBalance: 0,
                 source: "INVOICE_POSTING",
@@ -260,7 +257,7 @@ export async function getCustomerStatementAction(input: {
                 refNo: pay.paymentNo,
                 description: `Payment ${pay.mode}${pay.invoice?.invoiceNo ? ` for ${pay.invoice.invoiceNo}` : ""}`,
                 debit: 0,
-                credit: pay.amount,
+                credit: Number(pay.amount),
                 runningBalance: 0,
                 source: "PAYMENT_RECEIPT",
                 status: pay.status,
@@ -283,8 +280,8 @@ export async function getCustomerStatementAction(input: {
 
         const invoiceTotal = customer.invoices
             .filter((i) => i.status !== "CANCELLED")
-            .reduce((s, i) => s + i.totalAmount, 0);
-        const paymentTotal = customer.payments.reduce((s, p) => s + p.amount, 0);
+            .reduce((s, i) => s + Number(i.totalAmount), 0);
+        const paymentTotal = customer.payments.reduce((s, p) => s + Number(p.amount), 0);
         const outstanding = Number(customer.balance || 0);
         const fileBase = `statement-${customer.name.replace(/[^\w.-]+/g, "_").slice(0, 40)}`;
 

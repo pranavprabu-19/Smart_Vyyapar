@@ -12,8 +12,13 @@ export async function createVehicleAction(data: {
     details?: string;
 }) {
     try {
+        let company = await prisma.company.findFirst({ where: { name: "Sai Associates" } });
+        if (!company) company = await prisma.company.findFirst();
+        if (!company) throw new Error("Company not found");
+
         const vehicle = await prisma.vehicle.create({
             data: {
+                companyId: company.id,
                 regNo: data.regNo,
                 model: data.model,
                 type: data.type,

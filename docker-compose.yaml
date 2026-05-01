@@ -1,0 +1,50 @@
+name: smartvyapar
+
+services:
+  ml:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    image: smartvyapar/ml:latest
+    container_name: smartvyapar-ml
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    networks:
+      - smartvyapar
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: smartvyapar/web:latest
+    container_name: smartvyapar-web
+    restart: unless-stopped
+    depends_on:
+      ml:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      ML_SERVICE_URL: http://ml:8000
+    volumes:
+      - ./public/uploads:/app/public/uploads
+    networks:
+      - smartvyapar
+
+networks:
+  smartvyapar:
+    driver: bridge

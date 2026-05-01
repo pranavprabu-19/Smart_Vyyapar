@@ -1,0 +1,42 @@
+# Files that should NEVER be sent to the Docker daemon (smaller, faster builds)
+# and that should not end up baked into the image.
+
+# Dependencies / build outputs (rebuilt in container)
+node_modules
+.next
+out
+
+# Local DB + cutover artifacts
+prisma/dev.db
+prisma/dev.db-journal
+prisma/backups
+
+# Secrets (compose injects via env_file at runtime)
+.env
+.env.local
+.env*.local
+
+# ML service is built from its own context
+ml-service
+
+# Editor / VCS / OS
+.git
+.gitignore
+.vscode
+.cursor
+**/.DS_Store
+*.log
+
+# Docs and meta files
+README.md
+*.md
+LICENSE
+
+# Don't recurse into Docker context
+Dockerfile
+.dockerignore
+docker-compose.yaml
+docker-compose.yml
+
+# User uploads are mounted at runtime via a bind volume
+public/uploads

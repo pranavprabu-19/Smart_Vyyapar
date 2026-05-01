@@ -123,7 +123,13 @@ export default function TripsPage() {
             const vehicle = vehicles.find(v => v.id === selectedVehicleId);
             const vehicleNo = vehicle ? vehicle.regNo : "Unknown";
 
-            await createDailyTrip(selectedDriverName, vehicleNo, selectedVehicleId, lookbackDays);
+            const result = await createDailyTrip(selectedDriverName, vehicleNo, selectedVehicleId, lookbackDays) as any;
+            if (result && result.error) {
+                alert(result.error);
+                setLoading(false);
+                return;
+            }
+
             await refreshTrip();
             setIsCreateModalOpen(false);
         } catch (e: any) {
@@ -637,6 +643,8 @@ export default function TripsPage() {
                                     <option value={2}>Since Yesterday</option>
                                     <option value={3}>Last 3 Days</option>
                                     <option value={7}>Last 7 Days</option>
+                                    <option value={30}>Last 30 Days</option>
+                                    <option value={365}>All Time (Testing)</option>
                                 </select>
                             </div>
                             <Button className="w-full" onClick={handleCreateSubmit} disabled={loading}>

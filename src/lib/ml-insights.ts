@@ -10,13 +10,8 @@
 
 import { getMlServiceBaseUrl } from "@/lib/ml-service-base-url";
 
-const ML_BASE_URL = getMlServiceBaseUrl();
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared fetch helper
-// ─────────────────────────────────────────────────────────────────────────────
-
 async function mlFetch<T>(path: string, body: unknown): Promise<T> {
+  const ML_BASE_URL = getMlServiceBaseUrl();
   const res = await fetch(`${ML_BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -342,6 +337,7 @@ export interface TrainResponse {
 export async function retrainModels(
   modelPreference: "logistic" | "random_forest" = "random_forest"
 ): Promise<TrainResponse> {
+  const ML_BASE_URL = getMlServiceBaseUrl();
   const res = await fetch(
     `${ML_BASE_URL}/train?model_preference=${modelPreference}`,
     { method: "POST", cache: "no-store" }
@@ -361,6 +357,7 @@ export async function getMLServiceHealth(): Promise<{
   payment_model_loaded: boolean;
   payment_model_type: string | null;
 }> {
+  const ML_BASE_URL = getMlServiceBaseUrl();
   const res = await fetch(`${ML_BASE_URL}/health`, { cache: "no-store" });
   if (!res.ok) throw new Error("ML service unreachable");
   return res.json();

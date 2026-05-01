@@ -9,7 +9,11 @@
     "start": "next start",
     "lint": "eslint",
     "backup:local": "node scripts/backup-local.js",
-    "bootstrap:admin": "node scripts/bootstrap-admin.js"
+    "backup:pg": "node scripts/backup-pg.js",
+    "bootstrap:admin": "node scripts/bootstrap-admin.js",
+    "db:check": "node scripts/db-check.js",
+    "db:seed": "node scripts/seed.js",
+    "cutover:sqlite-to-pg": "node scripts/cutover-sqlite-to-postgres.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

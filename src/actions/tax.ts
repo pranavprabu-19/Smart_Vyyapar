@@ -59,11 +59,11 @@ export async function getTaxSummaryAction(companyName: string, month: number, ye
             }
 
             for (const item of inv.items) {
-                const amount = item.quantity * item.price; // Taxable value? Assuming price is taxable.
+                const amount = item.quantity * Number(item.price); // Taxable value? Assuming price is taxable.
                 // If price is inclusive, this logic differs. 
                 // Based on `invoice-utils.ts`, price seems to be Taxable Value or Rate. 
-                // logic: const taxable = item.quantity * item.price;
-                const taxable = item.quantity * item.price;
+                // logic: const taxable = item.quantity * Number(item.price);
+                const taxable = item.quantity * Number(item.price);
                 const taxAmt = (taxable * 0); // Need gstRate. Wait, InvoiceItem has gstRate? 
                 // Let's check schema. InvoiceItem has 'productId', 'description', 'quantity', 'price', 'costPrice', 'hsn'.
                 // Schema view showed:
@@ -107,7 +107,7 @@ export async function getTaxSummaryAction(companyName: string, month: number, ye
                 // noting `// Real implementation requires gstRate column in InvoiceItem`
             }
 
-            totalSales += inv.totalAmount;
+            totalSales += Number(inv.totalAmount);
         }
 
         // Estimating Tax for display (since column missing)

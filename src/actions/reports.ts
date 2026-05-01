@@ -56,17 +56,16 @@ export async function getBalanceSheetReport(companyName: string = "Sai Associate
 
         // A. Stock Value
         const closingStock = products.reduce((sum, p) => {
-            const cost = p.costPrice || (p.price * 0.7); // Fallback if costPrice is 0
+            const cost = Number(p.costPrice || (Number(p.price) * 0.7)); // Fallback if costPrice is 0
             return sum + (p.stock * cost);
         }, 0);
 
         // B. Receivables (Only positive balances)
-        const receivables = customers.reduce((sum, c) => sum + Math.max(0, c.balance), 0);
-        // Note: Negative balances in customers would technically be "Advances from Customers" (Liability)
+        const receivables = customers.reduce((sum, c) => sum + Math.max(0, Number(c.balance)), 0);
         // For MVP we can assume balance is amount they OWE us.
 
         // C. Pending Wages
-        const wagesPayable = pendingPayroll.reduce((sum, p) => sum + p.netSalary, 0);
+        const wagesPayable = pendingPayroll.reduce((sum, p) => sum + Number(p.netSalary), 0);
 
         // D. Simulated / Hardcoded Values (As we don't have full ledger yet)
         const cash = 45000;
@@ -121,8 +120,8 @@ export async function getBalanceSheetReport(companyName: string = "Sai Associate
                     sku: p.sku,
                     name: p.name,
                     stock: p.stock,
-                    costPrice: p.costPrice || (p.price * 0.7),
-                    totalValue: p.stock * (p.costPrice || (p.price * 0.7)),
+                    costPrice: Number(p.costPrice || (Number(p.price) * 0.7)),
+                    totalValue: p.stock * Number(p.costPrice || (Number(p.price) * 0.7)),
                     minStock: p.minStock
                 }))
             }

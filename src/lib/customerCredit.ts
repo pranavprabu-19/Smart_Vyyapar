@@ -1,11 +1,10 @@
 "use server";
 
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 type SyncCreditInput = {
   customerId: string;
-  tx?: Prisma.TransactionClient;
+  tx?: any;
   overrides?: Record<string, unknown>;
 };
 
@@ -13,7 +12,7 @@ type SyncCreditInput = {
  * Keep CustomerCredit fields derived from the canonical Customer.balance.
  */
 export async function syncCustomerCreditFromBalance(input: SyncCreditInput) {
-  const db = input.tx ?? prisma;
+  const db: any = input.tx ?? prisma;
 
   const [customer, credit] = await Promise.all([
     db.customer.findUnique({
@@ -28,8 +27,9 @@ export async function syncCustomerCreditFromBalance(input: SyncCreditInput) {
 
   if (!customer || !credit) return null;
 
-  const currentBalance = Number(customer.balance || 0);
-  const availableCredit = Number((credit.creditLimit - currentBalance).toFixed(2));
+  const currentBalance = Number(customer.balance ?? 0);
+  const creditLimit = Number(credit.creditLimit ?? 0);
+  const availableCredit = Number((creditLimit - currentBalance).toFixed(2));
 
   return db.customerCredit.update({
     where: { customerId: input.customerId },

@@ -61,18 +61,18 @@ export async function getGSTR1Data(month: number, year: number, companyName: str
                     gstin: customerGSTIN,
                     invoiceNo: inv.invoiceNo,
                     date: inv.date.toISOString().split('T')[0],
-                    value: inv.totalAmount,
+                    value: Number(inv.totalAmount),
                     placeOfSupply: (inv.customer as any).state || "33-Tamil Nadu",
                     reverseCharge: "N",
                     invoiceType: "Regular",
                     taxRate: 18, // hardcoded for now or derived from items
-                    taxableValue: inv.totalAmount / 1.18 // simplistic back-calculation for demo
+                    taxableValue: Number(inv.totalAmount) / 1.18 // simplistic back-calculation for demo
                 });
             } else {
                 b2cSmall.push({
                     placeOfSupply: (inv.customer as any).state || "33-Tamil Nadu",
                     rate: 18,
-                    taxableValue: inv.totalAmount / 1.18,
+                    taxableValue: Number(inv.totalAmount) / 1.18,
                     cess: 0
                 });
             }
@@ -120,7 +120,7 @@ export async function getGSTR1Data(month: number, year: number, companyName: str
             hsn: Object.values(hsnSummary),
             meta: {
                 count: invoices.length,
-                totalValue: invoices.reduce((acc, curr) => acc + curr.totalAmount, 0)
+                totalValue: invoices.reduce((acc, curr) => acc + Number(curr.totalAmount), 0)
             }
         };
 

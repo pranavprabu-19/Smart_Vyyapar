@@ -255,8 +255,12 @@ export async function createOrderAction(data: CreateOrderData) {
     const totalDiscount = processedItems.reduce((sum, item) => sum + item.discount, 0);
     const totalAmount = subtotal - totalDiscount + taxAmount;
 
+    const company = await prisma.company.findFirst({ where: { name: data.companyName }});
+    if (!company) throw new Error("Company not found");
+
     const order = await prisma.order.create({
       data: {
+        companyId: company.id,
         orderNo: generateOrderNo(),
         companyName: data.companyName,
         customerId: data.customerId,
@@ -412,9 +416,13 @@ export async function convertOrderToInvoice(orderId: string) {
     const random = Math.random().toString(36).substring(2, 4).toUpperCase();
     const invoiceNo = `${prefix}-${timestamp}${random}`;
 
+    const company = await prisma.company.findFirst({ where: { name: order.companyName }});
+    if (!company) throw new Error("Company not found");
+
     // Create invoice from order
     const invoice = await prisma.invoice.create({
       data: {
+        companyId: company.id,
         invoiceNo,
         companyName: order.companyName,
         customerId: order.customerId,

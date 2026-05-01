@@ -109,7 +109,7 @@ export default function EWayBillSettingsPage() {
       });
       setAuditLogs(res.data.ewayAuditLogs || []);
       setLastStatus({
-        testedAt: res.data.ewayLastTestedAt,
+        testedAt: res.data.ewayLastTestedAt?.toISOString(),
         status: res.data.ewayLastTestStatus,
         message: res.data.ewayLastTestMessage,
       });
