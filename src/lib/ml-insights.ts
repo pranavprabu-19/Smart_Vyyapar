@@ -12,12 +12,18 @@ import { getMlServiceBaseUrl } from "@/lib/ml-service-base-url";
 
 async function mlFetch<T>(path: string, body: unknown): Promise<T> {
   const ML_BASE_URL = getMlServiceBaseUrl();
+  
+  // Fast-fail if not configured in production
+  if (process.env.NODE_ENV === "production" && (!process.env.ML_SERVICE_URL && !process.env.ML_API_URL)) {
+    throw new Error("ML Service is not configured in production environment variables.");
+  }
+
   const res = await fetch(`${ML_BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    // Next.js 14+ cache: no-store so we always get fresh ML results
     cache: "no-store",
+    signal: AbortSignal.timeout(2000), // Prevent hanging the dashboard
   });
 
   if (!res.ok) {
